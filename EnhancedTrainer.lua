@@ -1,0 +1,118 @@
+-- Enhanced Trainer: adds a "Train All" button to the trainer frame that
+-- trains every available skill you can afford in one click.
+--
+-- Classic clients return the category third from GetTrainerServiceInfo
+-- (name, rank, category) while retail returns it second, so the category is
+-- read from whichever slot holds a known value. Retail's BuyTrainerService(0)
+-- shortcut (train everything server-side) is not assumed to exist; services
+-- are bought one at a time instead.
+
+local CATEGORIES = {
+    available   = true,
+    unavailable = true,
+    used        = true,
+    header      = true,
+}
+
+local function ServiceCategory(index)
+    local _, second, third = GetTrainerServiceInfo(index)
+    if CATEGORIES[second] then return second end
+    if CATEGORIES[third] then return third end
+    return nil
+end
+
+-- Returns trained, spent, unaffordable, detail. detail is only set when
+-- nothing was available at all.
+function UlRemedy.TrainAllAvailable()
+    local total = GetNumTrainerServices()
+    local available = {}
+    local counts = {}
+    for i = 1, total do
+        local category = ServiceCategory(i) or "?"
+        counts[category] = (counts[category] or 0) + 1
+        if category == "available" then
+            available[#available + 1] = i
+        end
+    end
+    if #available == 0 then
+        -- Diagnostic breakdown: shows what the scan actually saw, so a wrong
+        -- category assumption or an empty list is visible straight in chat.
+        local detail
+        if total == 0 then
+            detail = "trainer list is empty"
+        else
+            local parts = {}
+            for cat, n in pairs(counts) do
+                table.insert(parts, n .. " " .. cat)
+            end
+            table.sort(parts)
+            detail = table.concat(parts, ", ")
+        end
+        return 0, 0, 0, detail
+    end
+
+    -- Walk from the bottom of the list up. A learned service can move or
+    -- disappear, which only shifts the entries after it, so the indices we
+    -- have not reached yet stay valid. The budget keeps us from firing
+    -- purchases the server would reject for lack of gold.
+    local budget = GetMoney()
+    local trained, spent = 0, 0
+    for n = #available, 1, -1 do
+        local index = available[n]
+        local cost = GetTrainerServiceCost(index) or 0
+        if cost <= budget then
+            BuyTrainerService(index)
+            budget = budget - cost
+            spent = spent + cost
+            trained = trained + 1
+        end
+    end
+    return trained, spent, #available - trained
+end
+
+local function OnTrainAllClick()
+    if not UlRemedy.enabled.trainer then return end
+    local trained, spent, unaffordable, detail = UlRemedy.TrainAllAvailable()
+    if detail then
+        print(UlRemedy.name .. ": Nothing available to train (" .. detail .. ").")
+    elseif trained == 0 then
+        print(UlRemedy.name .. ": Not enough gold for any of the " .. unaffordable .. " available skill(s).")
+    elseif unaffordable > 0 then
+        print(UlRemedy.name .. ": Trained " .. trained .. " skill(s) for " .. UlRemedy.MoneyText(spent) .. ". Not enough gold for the remaining " .. unaffordable .. ".")
+    else
+        print(UlRemedy.name .. ": Trained " .. trained .. " skill(s) for " .. UlRemedy.MoneyText(spent) .. ".")
+    end
+end
+
+local trainAllButton
+
+local function EnsureButton()
+    if trainAllButton then return trainAllButton end
+    if not ClassTrainerFrame then return nil end
+    local b = CreateFrame("Button", "UlRemedyTrainAllButton", ClassTrainerFrame, "UIPanelButtonTemplate")
+    b:SetSize(90, 22)
+    b:SetText("Train All")
+    if ClassTrainerTrainButton then
+        b:SetPoint("RIGHT", ClassTrainerTrainButton, "LEFT", -4, 0)
+    else
+        b:SetPoint("BOTTOMLEFT", ClassTrainerFrame, "BOTTOMLEFT", 20, 4)
+    end
+    b:SetScript("OnClick", OnTrainAllClick)
+    trainAllButton = b
+    return b
+end
+
+local frame = CreateFrame("Frame", "UlRemedyTrainerFrame")
+frame:RegisterEvent("TRAINER_SHOW")
+frame:SetScript("OnEvent", function()
+    -- Blizzard_TrainerUI is load-on-demand; make sure the frame exists.
+    if C_AddOns and C_AddOns.LoadAddOn then
+        C_AddOns.LoadAddOn("Blizzard_TrainerUI")
+    end
+    if not UlRemedy.enabled.trainer then
+        if trainAllButton then trainAllButton:Hide() end
+        return
+    end
+    local b = EnsureButton()
+    if b then b:Show() end
+end)

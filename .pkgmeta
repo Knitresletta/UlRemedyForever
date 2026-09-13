@@ -1,0 +1,7 @@
+package-as: UlRemedyForever
+
+ignore:
+  - .pkgmeta
+  - .gitignore
+  - .github
+  - README.md

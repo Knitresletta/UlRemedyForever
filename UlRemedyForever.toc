@@ -1,0 +1,14 @@
+## Interface: 11508
+## Title: UlRemedyForever
+## Notes: Utility collection for WoW: Forever: auto repair, junk selling, group invite, enhanced trainer, cursor ring.
+## Author: knitresletta
+## Version: 0.1.0
+## Category: Knitresletta
+## SavedVariables: UlRemedyForeverDB
+
+Core.lua
+AutoGuildRepair.lua
+AutoJunkSeller.lua
+AutoGroupInvite.lua
+EnhancedTrainer.lua
+CursorRing.lua

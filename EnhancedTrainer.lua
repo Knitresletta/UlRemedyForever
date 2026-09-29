@@ -70,8 +70,30 @@ function UlRemedy.TrainAllAvailable()
     return trained, spent, #available - trained
 end
 
+-- This client moves some former globals under C_* namespaces (GetItemInfo is
+-- one). Name the missing function instead of throwing a Lua error, so an API
+-- that moved is obvious from chat.
+local TRAINER_API = {
+    "GetNumTrainerServices",
+    "GetTrainerServiceInfo",
+    "GetTrainerServiceCost",
+    "BuyTrainerService",
+}
+
+local function MissingTrainerAPI()
+    for _, name in ipairs(TRAINER_API) do
+        if type(_G[name]) ~= "function" then return name end
+    end
+    return nil
+end
+
 local function OnTrainAllClick()
     if not UlRemedy.enabled.trainer then return end
+    local missing = MissingTrainerAPI()
+    if missing then
+        print(UlRemedy.name .. ": trainer API " .. missing .. " is not available on this client.")
+        return
+    end
     local trained, spent, unaffordable, detail = UlRemedy.TrainAllAvailable()
     if detail then
         print(UlRemedy.name .. ": Nothing available to train (" .. detail .. ").")

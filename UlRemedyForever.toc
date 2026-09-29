@@ -1,4 +1,4 @@
-## Interface: 11508
+## Interface: 16001
 ## Title: UlRemedyForever
 ## Notes: Utility collection for WoW: Forever: auto repair, junk selling, group invite, enhanced trainer, cursor ring.
 ## Author: knitresletta

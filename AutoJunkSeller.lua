@@ -3,6 +3,7 @@ local function SellJunk()
     local total = 0
     local sold = 0
     local skipped = 0
+    local pricesKnown = true
 
     for bag = 0, (NUM_TOTAL_EQUIPPED_BAG_SLOTS or 4) do
         for slot = 1, (C_Container.GetContainerNumSlots(bag) or 0) do
@@ -14,16 +15,20 @@ local function SellJunk()
                 local isQuestItem = questInfo and (questInfo.isQuestItem or questInfo.questID)
                 if info.isLocked or isQuestItem then
                     skipped = skipped + 1
+                elseif info.hasNoValue then
+                    skipped = skipped + 1
                 else
-                    local vendorPrice = select(11, GetItemInfo(info.hyperlink)) or 0
-                    if vendorPrice > 0 then
-                        local quantity = info.stackCount or 1
-                        C_Container.UseContainerItem(bag, slot)
+                    -- hasNoValue already established the vendor buys this, so sell
+                    -- it even when the price is not cached; only the reported
+                    -- total is affected by a cache miss.
+                    local vendorPrice = UlRemedy.ItemVendorPrice(info.hyperlink)
+                    local quantity = info.stackCount or 1
+                    C_Container.UseContainerItem(bag, slot)
+                    sold = sold + quantity
+                    if vendorPrice then
                         total = total + (vendorPrice * quantity)
-                        sold = sold + quantity
                     else
-                        -- Fix 2: count cache misses so the player knows to retry
-                        skipped = skipped + 1
+                        pricesKnown = false
                     end
                 end
             end
@@ -31,10 +36,14 @@ local function SellJunk()
     end
 
     if sold > 0 then
-        print(UlRemedy.name .. ": Sold " .. sold .. " junk item(s) for " .. UlRemedy.MoneyText(total) .. ".")
+        if pricesKnown then
+            print(UlRemedy.name .. ": Sold " .. sold .. " junk item(s) for " .. UlRemedy.MoneyText(total) .. ".")
+        else
+            print(UlRemedy.name .. ": Sold " .. sold .. " junk item(s).")
+        end
     end
     if skipped > 0 then
-        print(UlRemedy.name .. ": " .. skipped .. " junk item(s) skipped (locked, quest item, or data not yet loaded).")
+        print(UlRemedy.name .. ": " .. skipped .. " junk item(s) skipped (locked, quest item, or no vendor value).")
     end
 end
 

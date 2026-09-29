@@ -20,10 +20,20 @@ local function InitDB()
 end
 
 function UlRemedy.MoneyText(amount)
-    if GetCoinTextureString then
-        return GetCoinTextureString(amount)
+    local coinText = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
+    if coinText then
+        return coinText(amount)
     end
     return tostring(amount) .. " copper"
+end
+
+-- Forever exposes the item APIs under C_Item rather than as globals. Resolve at
+-- call time and keep the global path for clients that still have it. Returns
+-- nil when the item is not in the local cache yet, which callers must handle.
+function UlRemedy.ItemVendorPrice(itemLink)
+    local getItemInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
+    if not getItemInfo then return nil end
+    return (select(11, getItemInfo(itemLink)))
 end
 
 local FEATURES = {

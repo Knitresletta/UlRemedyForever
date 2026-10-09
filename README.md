@@ -18,6 +18,8 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Cursor Ring**: A dusty purple ring with a soft silver glow that follows your mouse cursor, visible on light and dark backgrounds alike.
 
+**Inventory Tracker**: Remembers gold, bag contents and bank contents for every character you log in with. Hovering an item shows which of your characters have it and whether it sits in their bags or bank, with a total across characters. `/ur inv` opens a window where you can browse each character's items (or all at once), search by name, and see gold per character and in total. Bags and gold update live; the bank is read each time you open it, so a character's bank snapshot is from their last bank visit. Characters you no longer play can be removed with the **Forget character** button.
+
 ## Commands
 
 Type `/ur` to list every feature and its current state.
@@ -29,6 +31,8 @@ Type `/ur` to list every feature and its current state.
 | `/ur groupinvite` | Toggle group invite auto-accept |
 | `/ur trainer` | Toggle the trainer Train All button |
 | `/ur cursor` | Toggle the cursor ring |
+| `/ur inventory` | Toggle the inventory tracker (tooltip lines and scanning) |
+| `/ur inv` | Open or close the inventory browser window |
 
 ## Installation
 

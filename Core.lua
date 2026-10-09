@@ -6,6 +6,7 @@ local DEFAULTS = {
     groupinvite = true,
     trainer     = true,
     cursor      = true,
+    inventory   = true,
 }
 
 local function InitDB()
@@ -42,6 +43,7 @@ local FEATURES = {
     { key = "groupinvite", label = "Group Invite" },
     { key = "trainer",     label = "Enhanced Trainer" },
     { key = "cursor",      label = "Cursor Ring" },
+    { key = "inventory",   label = "Inventory Tracker" },
 }
 
 local function PrintHelp()
@@ -50,6 +52,7 @@ local function PrintHelp()
         local state = UlRemedy.enabled[f.key] and "|cff00ff00on|r" or "|cffff4444off|r"
         print("  /ur " .. f.key .. ": " .. f.label .. " (" .. state .. ")")
     end
+    print("  /ur inv: open the inventory browser (all characters, gold and items)")
 end
 
 local function Toggle(key, label)
@@ -57,12 +60,17 @@ local function Toggle(key, label)
     local state = UlRemedy.enabled[key] and "|cff00ff00enabled|r" or "|cffff4444disabled|r"
     print(UlRemedy.name .. ": " .. label .. " " .. state .. ".")
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
+    if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
 end
 
 SLASH_ULREMEDY1 = "/ur"
 SLASH_ULREMEDY2 = "/ulremedy"
 SlashCmdList["ULREMEDY"] = function(msg)
     local cmd = strtrim(msg):lower()
+    if cmd == "inv" or cmd == "bags" then
+        if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
+        return
+    end
     local matched = false
     for _, f in ipairs(FEATURES) do
         if cmd == f.key then

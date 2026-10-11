@@ -4,7 +4,7 @@ A lightweight quality-of-life collection for **World of Warcraft: Forever**. A h
 
 A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (retail). Only the features that make sense in Forever are included.
 
-> **Status:** early port, written before the Forever beta opened. Not yet verified on the Forever client.
+> **Status:** tested in-game on the Forever beta client (build 1.60.1).
 
 ## Features
 

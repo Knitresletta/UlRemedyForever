@@ -3,6 +3,7 @@ UlRemedy = { name = "UlRemedyForever", enabled = {} }
 local DEFAULTS = {
     repair      = true,
     junk        = true,
+    junkdelete  = false,
     groupinvite = true,
     trainer     = true,
     cursor      = true,
@@ -42,6 +43,7 @@ end
 local FEATURES = {
     { key = "repair",      label = "Auto Repair" },
     { key = "junk",        label = "Junk Seller" },
+    { key = "junkdelete",  label = "Junk Deleter (deletes the cheapest junk item when bags are full)" },
     { key = "groupinvite", label = "Group Invite" },
     { key = "trainer",     label = "Enhanced Trainer" },
     { key = "cursor",      label = "Cursor Ring" },
@@ -69,6 +71,7 @@ local function Toggle(key, label)
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
+    if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
 end
 
 SLASH_ULREMEDY1 = "/ur"

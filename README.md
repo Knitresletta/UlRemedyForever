@@ -1,6 +1,6 @@
 # UlRemedyForever
 
-A lightweight quality-of-life collection for **World of Warcraft: Forever**. Five small utilities in one addon, each individually toggleable with a slash command. Settings persist between sessions.
+A lightweight quality-of-life collection for **World of Warcraft: Forever**. A handful of small utilities in one addon, each individually toggleable with a slash command. Settings persist between sessions.
 
 A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (retail). Only the features that make sense in Forever are included.
 
@@ -11,6 +11,8 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 **Auto Repair**: Repairs your gear when you open a vendor. Guild bank funds first when they actually cover the cost, your own gold as fallback, and it only reports success once the repair is confirmed.
 
 **Junk Seller**: Sells all grey items when you open a vendor.
+
+**Junk Deleter** (off by default): When your bags are full, deletes the cheapest grey item to free a slot, so you can keep looting. It only ever touches grey (junk) items, and skips locked items, quest items and items whose vendor price the client has not cached yet. "Cheapest" means the stack with the lowest total vendor value. It stays idle while a vendor window is open, since the junk seller sells the greys there instead. Each deletion is reported in chat with the item and its value. Turn it on with `/ur junkdelete`.
 
 **Group Invite**: Auto-accepts group invites from friends, Battle.net friends and guildmates. Unknown inviters are left for you to handle.
 
@@ -32,6 +34,7 @@ Type `/ur` to list every feature and its current state.
 |---------|-------------|
 | `/ur repair` | Toggle auto repair |
 | `/ur junk` | Toggle junk seller |
+| `/ur junkdelete` | Toggle the junk deleter (deletes the cheapest grey item when bags are full; off by default) |
 | `/ur groupinvite` | Toggle group invite auto-accept |
 | `/ur trainer` | Toggle the trainer Train All button |
 | `/ur cursor` | Toggle the cursor ring |

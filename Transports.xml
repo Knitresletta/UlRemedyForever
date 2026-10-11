@@ -1,0 +1,23 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Frame name="UlRemedyTransportPinTemplate" enableMouseMotion="true" enableMouseClicks="true" mixin="UlRemedyTransportPinMixin" virtual="true">
+		<Size x="26" y="26"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Texture" atlas="islands-allianceboat">
+					<Size x="26" y="26"/>
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="Highlight" atlas="islands-allianceboat" alphaMode="ADD" alpha="0.4">
+					<Size x="26" y="26"/>
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
+</Ui>

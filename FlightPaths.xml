@@ -1,0 +1,21 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Frame name="UlRemedyFlightPinTemplate" enableMouseMotion="true" enableMouseClicks="true" mixin="UlRemedyFlightPinMixin" virtual="true">
+		<Size x="21" y="21"/>
+		<Layers>
+			<Layer level="ARTWORK">
+				<Texture parentKey="Texture" atlas="TaxiNode_Neutral" useAtlasSize="true">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+			<Layer level="HIGHLIGHT">
+				<Texture parentKey="Highlight" atlas="TaxiNode_Neutral" useAtlasSize="true" alphaMode="ADD" alpha="0.4">
+					<Anchors>
+						<Anchor point="CENTER"/>
+					</Anchors>
+				</Texture>
+			</Layer>
+		</Layers>
+	</Frame>
+</Ui>

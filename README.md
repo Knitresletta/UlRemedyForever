@@ -20,6 +20,10 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Inventory Tracker**: Remembers gold, bag contents and bank contents for every character you log in with. Hovering an item shows which of your characters have it and whether it sits in their bags or bank, with a total across characters. `/ur inv` opens a window where you can browse each character's items (or all at once), search by name, and see gold per character and in total. Bags and gold update live; the bank is read each time you open it, so a character's bank snapshot is from their last bank visit. Characters you no longer play can be removed with the **Forget character** button.
 
+**Flight Paths**: Shows every flight master for your faction on the world map, including the ones you have not discovered yet. Undiscovered ones are tinted red, drawn slightly larger and have a pulsing red ring behind them; the ones you know are drawn as the normal faction icon. The locations come from the Forever client's own flight path table (so new Forever zones such as Riverglades and Mount Hyjal are included) and are projected onto whichever map you have open. Flight points the game already draws itself are left alone. Clicking a pin sets a map waypoint where the client supports it. The Forever client currently reports every flight path as known, so the addon keeps its own list instead: each time you open a flight master, every path you can fly to from there is saved for that character (paths the flight master lists as unreachable are ignored, since on Forever that includes undiscovered ones). Until you have done that once, all paths show as undiscovered. `/ur fp` prints diagnostics for the open map.
+
+**Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
+
 ## Commands
 
 Type `/ur` to list every feature and its current state.
@@ -33,6 +37,10 @@ Type `/ur` to list every feature and its current state.
 | `/ur cursor` | Toggle the cursor ring |
 | `/ur inventory` | Toggle the inventory tracker (tooltip lines and scanning) |
 | `/ur inv` | Open or close the inventory browser window |
+| `/ur flightpaths` | Toggle flight path pins on the world map |
+| `/ur transports` | Toggle boat, zeppelin, tram and portal pins on the world map |
+| `/ur fp` | Print flight path diagnostics for the open map |
+| `/ur fpreset` | Forget this character's known flight paths and sync again at a flight master |
 
 ## Installation
 

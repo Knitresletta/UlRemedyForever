@@ -7,6 +7,8 @@ local DEFAULTS = {
     trainer     = true,
     cursor      = true,
     inventory   = true,
+    flightpaths = true,
+    transports  = true,
 }
 
 local function InitDB()
@@ -44,6 +46,8 @@ local FEATURES = {
     { key = "trainer",     label = "Enhanced Trainer" },
     { key = "cursor",      label = "Cursor Ring" },
     { key = "inventory",   label = "Inventory Tracker" },
+    { key = "flightpaths", label = "Flight Paths on Map" },
+    { key = "transports",  label = "Boats, Zeppelins, Tram and Portals on Map" },
 }
 
 local function PrintHelp()
@@ -53,6 +57,8 @@ local function PrintHelp()
         print("  /ur " .. f.key .. ": " .. f.label .. " (" .. state .. ")")
     end
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
+    print("  /ur fp: print flight path map diagnostics for the current map")
+    print("  /ur fpreset: forget this character's known flight paths and sync again")
 end
 
 local function Toggle(key, label)
@@ -61,6 +67,8 @@ local function Toggle(key, label)
     print(UlRemedy.name .. ": " .. label .. " " .. state .. ".")
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
+    if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
+    if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
 end
 
 SLASH_ULREMEDY1 = "/ur"
@@ -69,6 +77,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     local cmd = strtrim(msg):lower()
     if cmd == "inv" or cmd == "bags" then
         if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
+        return
+    end
+    if cmd == "fp" then
+        if UlRemedy.FlightPathDebug then UlRemedy.FlightPathDebug() end
+        return
+    end
+    if cmd == "fpreset" then
+        if UlRemedy.ResetFlightPaths then UlRemedy.ResetFlightPaths() end
         return
     end
     local matched = false

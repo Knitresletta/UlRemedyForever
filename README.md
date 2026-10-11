@@ -12,7 +12,7 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Junk Seller**: Sells all grey items when you open a vendor.
 
-**Junk Deleter** (off by default): When your bags are full, deletes the cheapest grey item to free a slot, so you can keep looting. It only ever touches grey (junk) items, and skips locked items, quest items and items whose vendor price the client has not cached yet. "Cheapest" means the stack with the lowest total vendor value. It stays idle while a vendor window is open, since the junk seller sells the greys there instead. Each deletion is reported in chat with the item and its value. Turn it on with `/ur junkdelete`.
+**Junk Deleter** (off by default): When your bags are full, deletes the cheapest grey item to free a slot, so you can keep looting. It only ever touches grey (junk) items, and skips locked items, quest items and items whose vendor price the client has not cached yet. "Cheapest" means the stack with the lowest total vendor value. It stays idle while a vendor window is open, since the junk seller sells the greys there instead. Each deletion is reported in chat with the item and its value. The Forever client only lets an addon delete an item in response to a click or key press, so when the silent routes are refused a small popup appears naming the item, and one click on **Delete** removes it. Cancelling the popup pauses the feature until your bags have a free slot again. Turn it on with `/ur junkdelete`.
 
 **Group Invite**: Auto-accepts group invites from friends, Battle.net friends and guildmates. Unknown inviters are left for you to handle.
 
@@ -44,6 +44,7 @@ Type `/ur` to list every feature and its current state.
 | `/ur transports` | Toggle boat, zeppelin, tram and portal pins on the world map |
 | `/ur fp` | Print flight path diagnostics for the open map |
 | `/ur fpreset` | Forget this character's known flight paths and sync again at a flight master |
+| `/ur jd` | Print junk deleter diagnostics (free slots, cheapest junk, last trigger) |
 
 ## Installation
 

@@ -14,11 +14,25 @@
 --
 -- "Cheapest" is the lowest total vendor value of the stack (price times
 -- count), since deleting any stack frees exactly one slot.
+--
+-- Triggers: any bag change (BAG_UPDATE, debounced, and BAG_UPDATE_DELAYED),
+-- a loot window opening, the "Inventory is full" error, and toggling the
+-- feature on. After a deletion the next attempt waits a moment so one full
+-- bag never causes two deletions.
+--
+-- The Forever client only honours DeleteCursorItem when the call comes from
+-- a click, key press or slash command. From an event the deletion is
+-- silently refused. The order of attempts is therefore: cursor deletion
+-- (works from /ur junkdelete), then C_Item.DeleteItem by GUID, and if the
+-- client refuses both, a popup with a single Delete button, whose click is
+-- a hardware event the client accepts.
 
 local lastError
-local armed = true          -- false between a deletion and the next bag update
+local blockedUntil = 0      -- no new deletion before this time
 local hintShown = false     -- "bags full but nothing to delete", once per episode
-local lastAttempt = 0
+local declined = false      -- the popup was cancelled for this full-bag episode
+local guidDeleteWorks       -- nil = untested, true/false after the first try
+local lastEvent, lastEventAt, lastResult
 
 local function Report(err)
     if err == lastError then return end
@@ -31,15 +45,16 @@ local function LastBag()
 end
 
 -- Only general-purpose bags count: a free slot in a quiver or soul bag does
--- not help when looting an ordinary item.
-local function GeneralBagsFull()
+-- not help when looting an ordinary item. Returns the free slot count.
+local function FreeGeneralSlots()
+    local free = 0
     for bag = 0, LastBag() do
-        local free, family = C_Container.GetContainerNumFreeSlots(bag)
-        if (free or 0) > 0 and (family or 0) == 0 then
-            return false
+        local n, family = C_Container.GetContainerNumFreeSlots(bag)
+        if (n or 0) > 0 and (family or 0) == 0 then
+            free = free + n
         end
     end
-    return true
+    return free
 end
 
 local function FindCheapestJunk()
@@ -70,9 +85,28 @@ local function FindCheapestJunk()
     return best
 end
 
-local function DeleteStack(entry)
+local function Describe(entry)
+    return entry.link .. (entry.count > 1 and (" x" .. entry.count) or "")
+end
+
+local function Announce(entry)
+    lastResult = "deleted " .. entry.link
+    print(UlRemedy.name .. ": bags full, deleted " .. Describe(entry) .. " (worth " .. UlRemedy.MoneyText(entry.value) .. ").")
+end
+
+local function SlotStillHolds(entry)
+    return C_Container.GetContainerItemID(entry.bag, entry.slot) == entry.itemID
+end
+
+-- Deletion through the cursor. Returns true, or false and a reason; the
+-- reason "refused" means the client ignored DeleteCursorItem, which is what
+-- happens when the call is not user-initiated.
+local function DeleteViaCursor(entry)
     if GetCursorInfo() then
         return false, "the cursor is holding something"
+    end
+    if not SlotStillHolds(entry) then
+        return false, "the item is no longer in that slot"
     end
     C_Container.PickupContainerItem(entry.bag, entry.slot)
     local kind, itemID = GetCursorInfo()
@@ -83,22 +117,117 @@ local function DeleteStack(entry)
     DeleteCursorItem()
     if GetCursorInfo() then
         ClearCursor()
-        return false, "the client refused the deletion"
+        return false, "refused"
     end
     return true
 end
 
+local function ItemGUIDAt(bag, slot)
+    if not (C_Item and C_Item.GetItemGUID and ItemLocation and ItemLocation.CreateFromBagAndSlot) then
+        return nil
+    end
+    local ok, guid = pcall(C_Item.GetItemGUID, ItemLocation:CreateFromBagAndSlot(bag, slot))
+    if ok then return guid end
+    return nil
+end
+
+StaticPopupDialogs["ULREMEDY_DELETE_JUNK"] = {
+    text = "Bags are full. Delete %s to free a slot?",
+    button1 = DELETE or "Delete",
+    button2 = CANCEL or "Cancel",
+    OnAccept = function(dialog, entry)
+        if not entry then return end
+        local ok, err = DeleteViaCursor(entry)
+        if ok then
+            Announce(entry)
+        else
+            lastResult = "popup failed: " .. tostring(err)
+            Report(err == "refused" and "the client refused the deletion even from a click" or err)
+        end
+    end,
+    OnCancel = function()
+        declined = true
+        lastResult = "popup cancelled"
+    end,
+    timeout = 0,
+    whileDead = 1,
+    hideOnEscape = 1,
+    showAlert = 1,
+    preferredIndex = 3,
+}
+
+local function Prompt(entry)
+    if not StaticPopup_Show then
+        Report("no popup available to confirm the deletion")
+        return
+    end
+    lastResult = "asking via popup"
+    StaticPopup_Show("ULREMEDY_DELETE_JUNK", Describe(entry), nil, entry)
+end
+
+-- Tries the silent routes first and falls back to the popup.
+local function Delete(entry)
+    local ok, err = DeleteViaCursor(entry)
+    if ok then
+        Announce(entry)
+        return
+    end
+    if err ~= "refused" then
+        lastResult = "failed: " .. tostring(err)
+        blockedUntil = 0
+        Report(err)
+        return
+    end
+
+    if guidDeleteWorks ~= false and C_Item and C_Item.DeleteItem then
+        local guid = ItemGUIDAt(entry.bag, entry.slot)
+        if guid then
+            lastResult = "trying deletion by GUID"
+            pcall(C_Item.DeleteItem, guid)
+            C_Timer.After(0.6, function()
+                if SlotStillHolds(entry) then
+                    guidDeleteWorks = false
+                    Prompt(entry)
+                else
+                    guidDeleteWorks = true
+                    Announce(entry)
+                end
+            end)
+            return
+        end
+    end
+
+    Prompt(entry)
+end
+
 local function Check()
-    if not UlRemedy.enabled.junkdelete then return end
-    if not armed then return end
-    if MerchantFrame and MerchantFrame:IsShown() then return end
-    if not GeneralBagsFull() then
+    if not UlRemedy.enabled.junkdelete then
+        lastResult = "feature off"
+        return
+    end
+    if MerchantFrame and MerchantFrame:IsShown() then
+        lastResult = "vendor open"
+        return
+    end
+    if FreeGeneralSlots() > 0 then
         hintShown = false
+        declined = false
+        lastResult = "bags not full"
+        if StaticPopup_Hide then StaticPopup_Hide("ULREMEDY_DELETE_JUNK") end
+        return
+    end
+    if declined then
+        lastResult = "popup cancelled, waiting until bags are not full"
+        return
+    end
+    if GetTime() < blockedUntil then
+        lastResult = "waiting after a deletion"
         return
     end
 
     local entry = FindCheapestJunk()
     if not entry then
+        lastResult = "bags full, no junk"
         if not hintShown then
             hintShown = true
             print(UlRemedy.name .. ": bags are full and there is no junk to delete.")
@@ -106,19 +235,8 @@ local function Check()
         return
     end
 
-    local now = GetTime()
-    if now - lastAttempt < 0.5 then return end
-    lastAttempt = now
-
-    armed = false
-    local ok, err = DeleteStack(entry)
-    if ok then
-        local what = entry.link .. (entry.count > 1 and (" x" .. entry.count) or "")
-        print(UlRemedy.name .. ": bags full, deleted " .. what .. " (worth " .. UlRemedy.MoneyText(entry.value) .. ").")
-    else
-        armed = true
-        Report(err)
-    end
+    blockedUntil = GetTime() + 1.5
+    Delete(entry)
 end
 
 function UlRemedy.CheckJunkDeleter()
@@ -126,16 +244,43 @@ function UlRemedy.CheckJunkDeleter()
     if not ok then Report(err) end
 end
 
-local frame = CreateFrame("Frame", "UlRemedyJunkDeleterFrame")
-frame:RegisterEvent("BAG_UPDATE_DELAYED")
-frame:RegisterEvent("UI_ERROR_MESSAGE")
-frame:SetScript("OnEvent", function(self, event, _, message)
-    if event == "BAG_UPDATE_DELAYED" then
-        armed = true
+local scheduled = false
+local function ScheduleCheck()
+    if scheduled then return end
+    scheduled = true
+    C_Timer.After(0.3, function()
+        scheduled = false
         UlRemedy.CheckJunkDeleter()
-    elseif event == "UI_ERROR_MESSAGE" then
-        if ERR_INV_FULL and message == ERR_INV_FULL then
-            UlRemedy.CheckJunkDeleter()
-        end
+    end)
+end
+
+function UlRemedy.JunkDeleterDebug()
+    local entry = FindCheapestJunk()
+    print("|cffffcc00" .. UlRemedy.name .. " junk deleter|r")
+    print("  enabled: " .. tostring(UlRemedy.enabled.junkdelete) .. ", free general slots: " .. FreeGeneralSlots())
+    print("  cheapest junk: " .. (entry and (entry.link .. " x" .. entry.count .. " = " .. UlRemedy.MoneyText(entry.value)) or "none"))
+    print("  last event: " .. tostring(lastEvent) .. (lastEventAt and (" (" .. math.floor(GetTime() - lastEventAt) .. "s ago)") or ""))
+    print("  last check: " .. tostring(lastResult) .. ", last error: " .. tostring(lastError))
+    print("  GUID deletion: " .. tostring(guidDeleteWorks) .. ", popup cancelled: " .. tostring(declined)
+        .. ", vendor open: " .. tostring((MerchantFrame and MerchantFrame:IsShown()) or false))
+end
+
+local frame = CreateFrame("Frame", "UlRemedyJunkDeleterFrame")
+frame:RegisterEvent("BAG_UPDATE")
+frame:RegisterEvent("BAG_UPDATE_DELAYED")
+frame:RegisterEvent("ITEM_PUSH")
+frame:RegisterEvent("LOOT_READY")
+frame:RegisterEvent("LOOT_OPENED")
+frame:RegisterEvent("PLAYER_ENTERING_WORLD")
+frame:RegisterEvent("UI_ERROR_MESSAGE")
+frame:SetScript("OnEvent", function(self, event, arg1, arg2)
+    if event == "UI_ERROR_MESSAGE" then
+        local message = tostring(arg2 or arg1 or ""):lower()
+        local invFull = (ERR_INV_FULL and arg2 == ERR_INV_FULL) or (ERR_BAG_FULL and arg2 == ERR_BAG_FULL)
+            or message:find("inventory is full", 1, true) or message:find("bag is full", 1, true)
+        if not invFull then return end
+        blockedUntil = 0
     end
+    lastEvent, lastEventAt = event, GetTime()
+    ScheduleCheck()
 end)

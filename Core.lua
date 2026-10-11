@@ -61,6 +61,7 @@ local function PrintHelp()
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
+    print("  /ur jd: print junk deleter diagnostics")
 end
 
 local function Toggle(key, label)
@@ -88,6 +89,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "fpreset" then
         if UlRemedy.ResetFlightPaths then UlRemedy.ResetFlightPaths() end
+        return
+    end
+    if cmd == "jd" then
+        if UlRemedy.JunkDeleterDebug then UlRemedy.JunkDeleterDebug() end
         return
     end
     local matched = false

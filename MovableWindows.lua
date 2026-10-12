@@ -18,9 +18,12 @@
 -- and HideUIPanel are post-hooked so a detached window is shown or hidden
 -- even on a client whose panel code bails out on an area-less frame.
 --
--- Which windows: every entry in UIPanelWindows whose area is left, center,
--- right or doublewide (minus a short exclusion list), plus a named list for
--- windows that are not panels on every client. This way Forever-only windows
+-- Which windows: every entry in UIPanelWindows except full-screen panels and
+-- a short exclusion list, plus a named list for windows that are not panels
+-- on every client. A window left inside the manager misbehaves next to the
+-- detached ones: the manager raises it on every layout update and runs
+-- CloseWindows when it is shown, which also closes everything in
+-- UISpecialFrames. So the rule is all or nothing, not a list of areas. This way Forever-only windows
 -- are picked up without knowing their names in advance.
 --
 -- Bags are a separate case. The ContainerFrameN frames come from a pool, so
@@ -75,7 +78,8 @@ local EXCLUDE = {
     MacOptionsFrame = true,
 }
 
-local AREAS = { left = true, center = true, right = true, doublewide = true }
+-- Areas never detached: full-screen panels manage the whole screen themselves.
+local SKIP_AREAS = { full = true, fullscreen = true }
 
 -- Child regions that commonly sit on top of a window's title bar with the
 -- mouse enabled, which would otherwise eat the drag before the window sees it.
@@ -269,7 +273,7 @@ end
 local function SetupAllPanels()
     if UIPanelWindows then
         for name, info in pairs(UIPanelWindows) do
-            if type(info) == "table" and AREAS[info.area or ""] then
+            if type(info) == "table" and info.area and not SKIP_AREAS[info.area] then
                 SetupPanel(name)
             end
         end

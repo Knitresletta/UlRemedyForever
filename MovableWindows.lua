@@ -13,12 +13,11 @@
 -- Show/Hide, so Blizzard's own open/close code keeps working, but nothing
 -- positions the window any more. We do that ourselves: apply the saved
 -- position on show, and save a new one when a drag ends. Windows outside the
--- manager are no longer closed by Escape. UISpecialFrames would fix that but
--- any panel still inside the manager empties that list when it opens (via
--- CloseWindows), taking our windows with it. Instead we watch the game menu:
--- Escape only opens it when nothing else closed, so if one of our windows is
--- open at that moment we close the windows and swallow the menu, which is
--- exactly the order Blizzard uses. As a safety net ShowUIPanel
+-- manager are no longer closed by Escape, so they are added to
+-- UISpecialFrames, the list Escape does close. (Hiding the game menu from a
+-- hook instead was tried and dropped: it runs the panel manager from addon
+-- code, and that manager also lays out the action bars, which must never be
+-- touched from tainted code in combat.) As a safety net ShowUIPanel
 -- and HideUIPanel are post-hooked so a detached window is shown or hidden
 -- even on a client whose panel code bails out on an area-less frame.
 --
@@ -44,6 +43,8 @@
 -- recreates them regardless of UI scale changes. Stored account-wide in
 -- UlRemedyForeverWindowDB (Core.lua wipes unknown keys in the main DB).
 --
+-- Off by default while experimental: the panel manager is entangled with the
+-- action bar layout, and tainting it can make the bars vanish in combat.
 -- Turning the feature off only stops us touching windows from then on; the
 -- windows already detached stay detached until /reload. /ur win prints
 -- diagnostics, including the frame under the mouse, for windows that do not
@@ -112,6 +113,13 @@ local function InitDB()
     db = UlRemedyForeverWindowDB
     db.frames = db.frames or {}
     db.bags = db.bags or {}
+    -- 1.1.7: the feature made action bars vanish in combat for some users.
+    -- Switch it off once for everyone who had it on; /ur windows turns it
+    -- back on deliberately.
+    if not db.forcedOff117 then
+        db.forcedOff117 = true
+        if UlRemedy.enabled then UlRemedy.enabled.windows = false end
+    end
 end
 
 -- Position helpers ---------------------------------------------------------
@@ -206,38 +214,19 @@ local function DetachFromPanelManager(frame, name)
     if frame:GetAttribute("UIPanelLayout-defined") then
         frame:SetAttribute("UIPanelLayout-area", nil)
     end
-    if UIPanelWindows then UIPanelWindows[name] = nil end
 end
 
--- Escape: close our windows before the game menu gets to show.
-local escapeHooked = false
-
-local function CloseOurWindows()
-    local closed = false
-    for name in pairs(handled) do
-        local f = _G[name]
-        if f and f:IsShown() then
-            if type(HideUIPanel) == "function" then HideUIPanel(f) else f:Hide() end
-            closed = true
-        end
+local function AddToEscapeList(name)
+    if not UISpecialFrames then return end
+    for _, existing in ipairs(UISpecialFrames) do
+        if existing == name then return end
     end
-    return closed
-end
-
-local function HookEscape()
-    if escapeHooked or not GameMenuFrame then return end
-    escapeHooked = true
-    GameMenuFrame:HookScript("OnShow", function(self)
-        if not Enabled() then return end
-        if CloseOurWindows() then
-            if type(HideUIPanel) == "function" then HideUIPanel(self) else self:Hide() end
-        end
-    end)
+    table.insert(UISpecialFrames, name)
 end
 
 local function SetupPanelUnsafe(name, frame)
     DetachFromPanelManager(frame, name)
-    HookEscape()
+    AddToEscapeList(name)
     frame:SetToplevel(true) -- clicking a window brings it in front of the others
 
     MakeDraggable(frame, function(self)

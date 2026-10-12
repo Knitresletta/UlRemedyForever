@@ -4,6 +4,8 @@ local DEFAULTS = {
     repair      = true,
     junk        = true,
     junkdelete  = false,
+    vendor      = true,
+    vendorbags  = true,
     groupinvite = true,
     trainer     = true,
     cursor      = true,
@@ -51,6 +53,8 @@ local FEATURES = {
     { key = "repair",      label = "Auto Repair" },
     { key = "junk",        label = "Junk Seller" },
     { key = "junkdelete",  label = "Junk Deleter (deletes the cheapest junk item when bags are full)" },
+    { key = "vendor",      label = "Vendor Window (bigger merchant window with a scrollable grid, search, filters and sorting)" },
+    { key = "vendorbags",  label = "Vendor Bags (bag panel docked to the vendor; click an item to sell it)" },
     { key = "groupinvite", label = "Group Invite" },
     { key = "trainer",     label = "Enhanced Trainer" },
     { key = "cursor",      label = "Cursor Ring" },
@@ -70,6 +74,7 @@ local function PrintHelp()
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur jd: print junk deleter diagnostics")
+    print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur winreset: forget saved window positions")
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
@@ -84,6 +89,7 @@ local function Toggle(key, label)
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
+    if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
 end
 
 SLASH_ULREMEDY1 = "/ur"
@@ -104,6 +110,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "jd" then
         if UlRemedy.JunkDeleterDebug then UlRemedy.JunkDeleterDebug() end
+        return
+    end
+    if cmd == "vendorreset" then
+        if UlRemedy.ResetVendorWindow then UlRemedy.ResetVendorWindow() end
         return
     end
     if cmd == "win" then

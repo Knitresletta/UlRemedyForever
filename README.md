@@ -1,6 +1,6 @@
 # UlRemedyForever
 
-A lightweight quality-of-life collection for **World of Warcraft: Forever**. A handful of small utilities in one addon, each individually toggleable with a slash command. Settings persist between sessions.
+A lightweight quality-of-life collection for **World of Warcraft: Forever**. A dozen small utilities in one addon, each individually toggleable with a slash command. Settings persist between sessions.
 
 A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (retail). Only the features that make sense in Forever are included.
 
@@ -13,6 +13,10 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 **Junk Seller**: Sells all grey items when you open a vendor.
 
 **Junk Deleter** (off by default): When your bags are full, deletes the cheapest grey item to free a slot, so you can keep looting. It only ever touches grey (junk) items, and skips locked items, quest items and items whose vendor price the client has not cached yet. "Cheapest" means the stack with the lowest total vendor value. It stays idle while a vendor window is open, since the junk seller sells the greys there instead. Each deletion is reported in chat with the item and its value. The Forever client only lets an addon delete an item in response to a click or key press, so when the silent routes are refused a small popup appears naming the item, and one click on **Delete** removes it. Cancelling the popup pauses the feature until your bags have a free slot again. Turn it on with `/ur junkdelete`.
+
+**Vendor Window**: A bigger merchant window. Every item the vendor sells is shown in one scrollable grid instead of ten per page, with a search box, a quality filter (all, uncommon+, rare+, epic+), a usable-only checkbox and a sort order (vendor order, name, price, quality). Drag the grip in the bottom-right corner to resize the window; it remembers its size across characters. Buying works exactly as before (right-click buys, shift-click buys a stack, drag to the cursor), because the grid uses Blizzard's own item slots. The buyback tab uses the same grid. `/ur vendorreset` restores the default size.
+
+**Vendor Bags**: A bag panel docked to the right of the vendor window showing everything in your bags. One click sells an item; green and better items ask for confirmation first, locked items, quest items and items without a vendor value are never sold. Shift-click links an item in chat. A search box dims everything that does not match. While the panel is on, Blizzard's own bags stay closed at vendors. Turn the panel off with `/ur vendorbags` to get the normal bags back.
 
 **Group Invite**: Auto-accepts group invites from friends, Battle.net friends and guildmates. Unknown inviters are left for you to handle.
 
@@ -37,6 +41,9 @@ Type `/ur` to list every feature and its current state.
 | `/ur repair` | Toggle auto repair |
 | `/ur junk` | Toggle junk seller |
 | `/ur junkdelete` | Toggle the junk deleter (deletes the cheapest grey item when bags are full; off by default) |
+| `/ur vendor` | Toggle the vendor window (scrollable grid, search, filters, sorting, resizable) |
+| `/ur vendorbags` | Toggle the bag panel docked to the vendor window |
+| `/ur vendorreset` | Reset the vendor window to its default size |
 | `/ur groupinvite` | Toggle group invite auto-accept |
 | `/ur trainer` | Toggle the trainer Train All button |
 | `/ur cursor` | Toggle the cursor ring |

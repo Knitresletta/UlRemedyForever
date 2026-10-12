@@ -1,4 +1,7 @@
 {
   "project_id": "1739996",
-  "default_release_type": "beta"
+  "default_release_type": "beta",
+  "default_game_versions": [
+    "1.60.1"
+  ]
 }

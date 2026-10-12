@@ -125,6 +125,18 @@ local function ApplyPosition(frame, pos)
     frame:SetPoint("CENTER", UIParent, "CENTER", pos.x, pos.y)
 end
 
+-- Many panel windows have no anchor of their own: the panel manager gives
+-- them one the first time they are shown. A window detached before that is
+-- shown without any point and simply does not render, which looks like "it
+-- will not open". Give such a window the manager's usual left-area spot.
+local function PlaceWindow(frame, pos)
+    if pos then
+        ApplyPosition(frame, pos)
+    elseif frame:GetNumPoints() == 0 then
+        frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
+    end
+end
+
 -- Set a script when the frame has none, hook it when it has one. HookScript
 -- on a frame without a handler is not reliable on every client.
 local function AddScript(frame, script, fn)
@@ -200,9 +212,9 @@ local function SetupPanelUnsafe(name, frame)
 
     AddScript(frame, "OnShow", function(self)
         if not Enabled() then return end
-        ApplyPosition(self, db.frames[name])
+        PlaceWindow(self, db.frames[name])
     end)
-    if frame:IsShown() then ApplyPosition(frame, db.frames[name]) end
+    PlaceWindow(frame, db.frames[name])
 end
 
 local function SetupPanel(name)
@@ -325,6 +337,28 @@ end
 
 -- Diagnostics --------------------------------------------------------------
 
+-- The client hides Lua errors unless scriptErrors is on, and this addon is
+-- tested on a machine without copy and paste. Keep the last few errors in
+-- the DB (chained in front of the previous handler, as BugGrabber does) so
+-- /ur win can print them.
+local MAX_ERRORS = 5
+local errorHandlerInstalled = false
+
+local function InstallErrorHandler()
+    if errorHandlerInstalled or type(seterrorhandler) ~= "function" then return end
+    errorHandlerInstalled = true
+    local previous = type(geterrorhandler) == "function" and geterrorhandler() or nil
+    seterrorhandler(function(msg, ...)
+        if db then
+            db.errors = db.errors or {}
+            local text = tostring(msg):gsub("Interface[/\\]AddOns[/\\]", "")
+            table.insert(db.errors, 1, date("%H:%M ") .. text:sub(1, 220))
+            while #db.errors > MAX_ERRORS do table.remove(db.errors) end
+        end
+        if previous then return previous(msg, ...) end
+    end)
+end
+
 local function FrameChain(frame)
     local parts = {}
     local f = frame
@@ -354,20 +388,32 @@ function UlRemedy.MovableWindowsDebug()
         .. " NUM_CONTAINER_FRAMES=" .. tostring(NUM_CONTAINER_FRAMES)
         .. " CombinedBags=" .. tostring(ContainerFrameCombinedBags ~= nil))
 
-    local names = {}
+    local names, ok, bad = {}, {}, {}
     for name in pairs(handled) do names[#names + 1] = name end
     table.sort(names)
-    p("  handled (" .. #names .. "):")
     for _, name in ipairs(names) do
         local f = _G[name]
-        local shown = f and f.IsShown and f:IsShown()
-        local drag = f and f.GetScript and f:GetScript("OnDragStart") and "drag" or "nodrag"
-        local pos = db and db.frames[name]
-        p("    " .. name .. ": area=" .. tostring(PanelArea(name)) .. " shown=" .. tostring(shown)
-            .. " " .. drag .. (pos and string.format(" saved=(%.0f,%.0f)", pos.x, pos.y) or "")
-            .. (errors[name] and (" |cffff4444error: " .. errors[name] .. "|r") or ""))
+        if errors[name] then
+            bad[#bad + 1] = name
+        elseif f then
+            local tag = name
+            if f:IsShown() then
+                tag = tag .. "(shown," .. f:GetNumPoints() .. "pt)"
+            end
+            ok[#ok + 1] = tag
+        end
     end
-    if errors.bags then p("  bags error: |cffff4444" .. errors.bags .. "|r") end
+    p("  ok (" .. #ok .. "): " .. table.concat(ok, ", "))
+    for _, name in ipairs(bad) do
+        p("  |cffff4444setup error|r " .. name .. ": " .. errors[name])
+    end
+    if errors.bags then p("  |cffff4444bags error|r: " .. errors.bags) end
+    if db and db.errors and #db.errors > 0 then
+        p("  recent Lua errors (newest first):")
+        for i, text in ipairs(db.errors) do p("    " .. i .. ". " .. text) end
+    else
+        p("  recent Lua errors: none")
+    end
 
     local panels = {}
     if UIPanelWindows then
@@ -398,6 +444,7 @@ end
 -- at login, after each load-on-demand Blizzard addon, and on toggle.
 function UlRemedy.RefreshMovableWindows()
     if not db or not Enabled() then return end
+    InstallErrorHandler()
     HookPanelFunctions()
     SetupAllPanels()
     SetupBags()
@@ -407,6 +454,7 @@ function UlRemedy.ResetWindowPositions()
     if not db then return end
     wipe(db.frames)
     wipe(db.bags)
+    db.errors = nil
     print(UlRemedy.name .. ": window positions forgotten. Type /reload to put the windows back where Blizzard puts them.")
 end
 

@@ -48,8 +48,6 @@
 -- recreates them regardless of UI scale changes. Stored account-wide in
 -- UlRemedyForeverWindowDB (Core.lua wipes unknown keys in the main DB).
 --
--- Off by default while experimental: the panel manager is entangled with the
--- action bar layout, and tainting it can make the bars vanish in combat.
 -- Turning the feature off only stops us touching windows from then on; the
 -- windows already detached stay detached until /reload. /ur win prints
 -- diagnostics, including the frame under the mouse, for windows that do not
@@ -133,12 +131,22 @@ local function InitDB()
     db = UlRemedyForeverWindowDB
     db.frames = db.frames or {}
     db.bags = db.bags or {}
-    -- 1.1.7: the feature made action bars vanish in combat for some users.
-    -- Switch it off once for everyone who had it on; /ur windows turns it
-    -- back on deliberately.
+    -- Stored diagnostics belong to the version that produced them.
+    local version = UlRemedy.Version and UlRemedy.Version() or "?"
+    if db.version ~= version then
+        db.version = version
+        db.errors = nil
+        db.seen = nil
+    end
+    -- 1.1.7 switched the feature off for everyone after the action bar
+    -- problem. 1.2.0 turns it back on once, now that the spellbook is left
+    -- to Blizzard; /ur windows still turns it off for good.
     if not db.forcedOff117 then
         db.forcedOff117 = true
-        if UlRemedy.enabled then UlRemedy.enabled.windows = false end
+    end
+    if not db.defaultOn120 then
+        db.defaultOn120 = true
+        if UlRemedy.enabled then UlRemedy.enabled.windows = true end
     end
 end
 
@@ -270,6 +278,7 @@ local function SetupManagedMover(name)
     if type(frame) ~= "table" or type(frame.GetObjectType) ~= "function" then return end
     managed[name] = true
     local ok, err = pcall(function()
+        frame:SetToplevel(true) -- clicking it brings it in front, like the detached windows
         MakeDraggable(frame, function(self)
             db.frames[name] = ReadPosition(self)
         end)
@@ -339,6 +348,9 @@ local function HookPanelFunctions()
             end
             if managed[name] then
                 ReapplyManagedMovers()
+                -- The manager shows it at its default level, under the
+                -- detached windows that have been raised by clicks.
+                frame:Raise()
             end
             if not handled[name] and not EXCLUDE[name] then
                 -- A panel we did not know about (registered by attributes

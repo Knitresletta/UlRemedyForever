@@ -2,7 +2,7 @@
 ## Title: UlRemedyForever
 ## Notes: Utility collection for WoW: Forever: auto repair, junk selling and deleting, group invite, enhanced trainer, cursor ring, movable windows, inventory tracker, flight paths and transports on the map.
 ## Author: knitresletta
-## Version: 1.1.9
+## Version: 1.2.0
 ## Category: Knitresletta
 ## IconTexture: Interface\AddOns\UlRemedyForever\media\icon
 ## SavedVariables: UlRemedyForeverDB, UlRemedyForeverInventoryDB, UlRemedyForeverWindowDB

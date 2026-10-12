@@ -7,6 +7,7 @@ local DEFAULTS = {
     groupinvite = true,
     trainer     = true,
     cursor      = true,
+    windows     = true,
     inventory   = true,
     flightpaths = true,
     transports  = true,
@@ -47,6 +48,7 @@ local FEATURES = {
     { key = "groupinvite", label = "Group Invite" },
     { key = "trainer",     label = "Enhanced Trainer" },
     { key = "cursor",      label = "Cursor Ring" },
+    { key = "windows",     label = "Movable Windows (drag Blizzard windows and bags; positions are remembered)" },
     { key = "inventory",   label = "Inventory Tracker" },
     { key = "flightpaths", label = "Flight Paths on Map" },
     { key = "transports",  label = "Boats, Zeppelins, Tram and Portals on Map" },
@@ -62,6 +64,7 @@ local function PrintHelp()
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur jd: print junk deleter diagnostics")
+    print("  /ur winreset: forget saved window positions")
 end
 
 local function Toggle(key, label)
@@ -69,6 +72,7 @@ local function Toggle(key, label)
     local state = UlRemedy.enabled[key] and "|cff00ff00enabled|r" or "|cffff4444disabled|r"
     print(UlRemedy.name .. ": " .. label .. " " .. state .. ".")
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
+    if UlRemedy.RefreshMovableWindows then UlRemedy.RefreshMovableWindows() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
@@ -93,6 +97,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "jd" then
         if UlRemedy.JunkDeleterDebug then UlRemedy.JunkDeleterDebug() end
+        return
+    end
+    if cmd == "winreset" then
+        if UlRemedy.ResetWindowPositions then UlRemedy.ResetWindowPositions() end
         return
     end
     local matched = false

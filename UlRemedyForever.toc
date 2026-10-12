@@ -1,10 +1,10 @@
 ## Interface: 16001
 ## Title: UlRemedyForever
-## Notes: Utility collection for WoW: Forever: auto repair, junk selling and deleting, group invite, enhanced trainer, cursor ring, inventory tracker, flight paths and transports on the map.
+## Notes: Utility collection for WoW: Forever: auto repair, junk selling and deleting, group invite, enhanced trainer, cursor ring, movable windows, inventory tracker, flight paths and transports on the map.
 ## Author: knitresletta
-## Version: 1.0.0
+## Version: 1.1.0
 ## Category: Knitresletta
-## SavedVariables: UlRemedyForeverDB, UlRemedyForeverInventoryDB
+## SavedVariables: UlRemedyForeverDB, UlRemedyForeverInventoryDB, UlRemedyForeverWindowDB
 ## SavedVariablesPerCharacter: UlRemedyForeverFlightDB
 
 Core.lua
@@ -14,6 +14,7 @@ AutoJunkDeleter.lua
 AutoGroupInvite.lua
 EnhancedTrainer.lua
 CursorRing.lua
+MovableWindows.lua
 InventoryTracker.lua
 FlightPaths.lua
 FlightPaths.xml

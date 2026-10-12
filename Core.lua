@@ -65,6 +65,7 @@ local function PrintHelp()
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur jd: print junk deleter diagnostics")
     print("  /ur winreset: forget saved window positions")
+    print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
 
 local function Toggle(key, label)
@@ -97,6 +98,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "jd" then
         if UlRemedy.JunkDeleterDebug then UlRemedy.JunkDeleterDebug() end
+        return
+    end
+    if cmd == "win" then
+        if UlRemedy.MovableWindowsDebug then UlRemedy.MovableWindowsDebug() end
         return
     end
     if cmd == "winreset" then

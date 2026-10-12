@@ -14,7 +14,14 @@
 -- positions the window any more. We do that ourselves: apply the saved
 -- position on show, and save a new one when a drag ends. Windows outside the
 -- manager are no longer closed by Escape, so they are added to
--- UISpecialFrames, the list Escape does close.
+-- UISpecialFrames, the list Escape does close. As a safety net ShowUIPanel
+-- and HideUIPanel are post-hooked so a detached window is shown or hidden
+-- even on a client whose panel code bails out on an area-less frame.
+--
+-- Which windows: every entry in UIPanelWindows whose area is left, center,
+-- right or doublewide (minus a short exclusion list), plus a named list for
+-- windows that are not panels on every client. This way Forever-only windows
+-- are picked up without knowing their names in advance.
 --
 -- Bags are a separate case. The ContainerFrameN frames come from a pool, so
 -- "ContainerFrame3" is not always the same bag; positions are stored per bag
@@ -22,34 +29,71 @@
 -- opens (UpdateContainerFrameAnchors), so that function is post-hooked to put
 -- the saved positions back.
 --
+-- Every per-window setup runs under pcall and is reported in chat, so one
+-- window the client handles differently never breaks the others.
+--
 -- Positions are stored as an offset from the centre of UIParent, in the
 -- window's own scale, so SetPoint("CENTER", UIParent, "CENTER", x, y)
 -- recreates them regardless of UI scale changes. Stored account-wide in
 -- UlRemedyForeverWindowDB (Core.lua wipes unknown keys in the main DB).
 --
 -- Turning the feature off only stops us touching windows from then on; the
--- windows already detached stay detached until /reload.
+-- windows already detached stay detached until /reload. /ur win prints
+-- diagnostics, including the frame under the mouse, for windows that do not
+-- get picked up.
 
-local PANELS = {
+-- Windows handled even when they are not registered in UIPanelWindows.
+local NAMED = {
     "CharacterFrame",
     "SpellBookFrame",
+    "PlayerSpellsFrame",  -- newer spellbook
     "TalentFrame",        -- Blizzard_TalentUI (load on demand)
     "QuestLogFrame",
     "FriendsFrame",
+    "GuildFrame",         -- Blizzard_GuildUI (load on demand)
     "ClassTrainerFrame",  -- Blizzard_TrainerUI (load on demand)
     "MerchantFrame",
     "MailFrame",
     "BankFrame",
     "TradeSkillFrame",    -- Blizzard_TradeSkillUI (load on demand): most professions
     "CraftFrame",         -- Blizzard_CraftUI (load on demand): enchanting, beast training
+    "ProfessionsFrame",   -- newer professions window
 }
+
+-- Panels never detached: full-screen or system windows that manage
+-- themselves, or that other code expects to find in the panel manager.
+local EXCLUDE = {
+    WorldMapFrame = true,
+    GameMenuFrame = true,
+    SettingsPanel = true,
+    VideoOptionsFrame = true,
+    InterfaceOptionsFrame = true,
+    AudioOptionsFrame = true,
+    HelpFrame = true,
+    StoreFrame = true,
+    EditModeManagerFrame = true,
+    MacOptionsFrame = true,
+}
+
+local AREAS = { left = true, center = true, right = true, doublewide = true }
+
+-- Child regions that commonly sit on top of a window's title bar with the
+-- mouse enabled, which would otherwise eat the drag before the window sees it.
+local TITLE_CHILDREN = { "TitleContainer", "TitleBar", "Header", "NineSlice" }
 
 local db
 local handled = {}       -- frame name -> true once detached and hooked
+local errors = {}        -- frame name -> last error text, for /ur win
 local bagsHooked = false
+local panelHooksDone = false
 
 local function Enabled()
     return UlRemedy.enabled and UlRemedy.enabled.windows
+end
+
+local function Report(name, err)
+    errors[name] = err
+    print(UlRemedy.name .. ": movable windows could not set up " .. name .. ": " .. tostring(err))
 end
 
 local function InitDB()
@@ -81,22 +125,43 @@ local function ApplyPosition(frame, pos)
     frame:SetPoint("CENTER", UIParent, "CENTER", pos.x, pos.y)
 end
 
--- Drag handling shared by panels and bags. onStop receives the frame after
--- the move and is responsible for saving.
+-- Set a script when the frame has none, hook it when it has one. HookScript
+-- on a frame without a handler is not reliable on every client.
+local function AddScript(frame, script, fn)
+    if frame:GetScript(script) then
+        frame:HookScript(script, fn)
+    else
+        frame:SetScript(script, fn)
+    end
+end
+
+-- Make `region` start a drag of `frame` (they are the same object for the
+-- window itself, different for a title bar child). onStop saves.
+local function DragFrom(region, frame, onStop)
+    if type(region.RegisterForDrag) ~= "function" then return end
+    region:EnableMouse(true)
+    region:RegisterForDrag("LeftButton")
+    AddScript(region, "OnDragStart", function()
+        if not Enabled() then return end
+        frame:StartMoving()
+    end)
+    AddScript(region, "OnDragStop", function()
+        frame:StopMovingOrSizing()
+        if not Enabled() then return end
+        onStop(frame)
+    end)
+end
+
 local function MakeDraggable(frame, onStop)
     frame:SetMovable(true)
     frame:SetClampedToScreen(true)
-    frame:EnableMouse(true)
-    frame:RegisterForDrag("LeftButton")
-    frame:HookScript("OnDragStart", function(self)
-        if not Enabled() then return end
-        self:StartMoving()
-    end)
-    frame:HookScript("OnDragStop", function(self)
-        self:StopMovingOrSizing()
-        if not Enabled() then return end
-        onStop(self)
-    end)
+    DragFrom(frame, frame, onStop)
+    for _, key in ipairs(TITLE_CHILDREN) do
+        local child = frame[key]
+        if type(child) == "table" and child ~= frame and type(child.GetObjectType) == "function" then
+            DragFrom(child, frame, onStop)
+        end
+    end
 end
 
 -- Panels (UIPanelWindows) --------------------------------------------------
@@ -105,13 +170,14 @@ end
 -- official way; fall back to editing the table and attributes directly on a
 -- client that lacks it.
 local function DetachFromPanelManager(frame, name)
-    if UIPanelWindows and UIPanelWindows[name] and type(SetUIPanelAttribute) == "function" then
+    if not UIPanelWindows or not UIPanelWindows[name] then return end
+    if type(SetUIPanelAttribute) == "function" then
         SetUIPanelAttribute(frame, "area", nil)
-        return
-    end
-    if UIPanelWindows then UIPanelWindows[name] = nil end
-    if frame:GetAttribute("UIPanelLayout-defined") then
-        frame:SetAttribute("UIPanelLayout-area", nil)
+    else
+        UIPanelWindows[name] = nil
+        if frame:GetAttribute("UIPanelLayout-defined") then
+            frame:SetAttribute("UIPanelLayout-area", nil)
+        end
     end
 end
 
@@ -123,12 +189,7 @@ local function AddToEscapeList(name)
     table.insert(UISpecialFrames, name)
 end
 
-local function SetupPanel(name)
-    if handled[name] then return end
-    local frame = _G[name]
-    if not frame or type(frame.GetName) ~= "function" then return end
-    handled[name] = true
-
+local function SetupPanelUnsafe(name, frame)
     DetachFromPanelManager(frame, name)
     AddToEscapeList(name)
     frame:SetToplevel(true) -- clicking a window brings it in front of the others
@@ -137,45 +198,107 @@ local function SetupPanel(name)
         db.frames[name] = ReadPosition(self)
     end)
 
-    frame:HookScript("OnShow", function(self)
+    AddScript(frame, "OnShow", function(self)
         if not Enabled() then return end
         ApplyPosition(self, db.frames[name])
     end)
     if frame:IsShown() then ApplyPosition(frame, db.frames[name]) end
 end
 
+local function SetupPanel(name)
+    if handled[name] or EXCLUDE[name] then return end
+    local frame = _G[name]
+    if type(frame) ~= "table" or type(frame.GetObjectType) ~= "function" then return end
+    if frame:GetObjectType() ~= "Frame" then return end
+    handled[name] = true
+    local ok, err = pcall(SetupPanelUnsafe, name, frame)
+    if not ok then Report(name, err) end
+end
+
+-- Safety net: a detached frame must still open and close through Blizzard's
+-- panel functions, whatever this client's versions of them do with a frame
+-- that has no area.
+local function HookPanelFunctions()
+    if panelHooksDone then return end
+    panelHooksDone = true
+    if type(ShowUIPanel) == "function" then
+        hooksecurefunc("ShowUIPanel", function(frame)
+            if not Enabled() or type(frame) ~= "table" then return end
+            local name = frame.GetName and frame:GetName()
+            if name and handled[name] and not frame:IsShown() then frame:Show() end
+        end)
+    end
+    if type(HideUIPanel) == "function" then
+        hooksecurefunc("HideUIPanel", function(frame)
+            if not Enabled() or type(frame) ~= "table" then return end
+            local name = frame.GetName and frame:GetName()
+            if name and handled[name] and frame:IsShown() then frame:Hide() end
+        end)
+    end
+end
+
+local function PanelArea(name)
+    local info = UIPanelWindows and UIPanelWindows[name]
+    local frame = _G[name]
+    if type(frame) == "table" and type(frame.GetAttribute) == "function"
+        and frame:GetAttribute("UIPanelLayout-defined") then
+        return frame:GetAttribute("UIPanelLayout-area")
+    end
+    return info and info.area
+end
+
+local function SetupAllPanels()
+    if UIPanelWindows then
+        for name, info in pairs(UIPanelWindows) do
+            if type(info) == "table" and AREAS[info.area or ""] then
+                SetupPanel(name)
+            end
+        end
+    end
+    for _, name in ipairs(NAMED) do
+        SetupPanel(name)
+    end
+end
+
 -- Bags ---------------------------------------------------------------------
 
-local function ApplyBagPositions()
-    if not Enabled() then return end
+local function BagFrames()
+    local list = {}
     local count = NUM_CONTAINER_FRAMES or 13
     for i = 1, count do
         local bag = _G["ContainerFrame" .. i]
-        if bag and bag:IsShown() then
-            ApplyPosition(bag, db.bags[bag:GetID()])
+        if bag then list[#list + 1] = bag end
+    end
+    if ContainerFrameCombinedBags then list[#list + 1] = ContainerFrameCombinedBags end
+    return list
+end
+
+local function BagKey(bag)
+    if bag == ContainerFrameCombinedBags then return "combined" end
+    return bag:GetID()
+end
+
+local function ApplyBagPositions()
+    if not Enabled() then return end
+    for _, bag in ipairs(BagFrames()) do
+        if bag:IsShown() then
+            ApplyPosition(bag, db.bags[BagKey(bag)])
         end
     end
 end
 
-local function SetupBags()
-    if bagsHooked then return end
-    local count = NUM_CONTAINER_FRAMES or 13
-    local found = false
-    for i = 1, count do
-        local bag = _G["ContainerFrame" .. i]
-        if bag then
-            found = true
-            MakeDraggable(bag, function(self)
-                db.bags[self:GetID()] = ReadPosition(self)
-            end)
-            bag:HookScript("OnShow", function(self)
-                if not Enabled() then return end
-                ApplyPosition(self, db.bags[self:GetID()])
-            end)
-        end
+local function SetupBagsUnsafe()
+    local bags = BagFrames()
+    if #bags == 0 then return false end
+    for _, bag in ipairs(bags) do
+        MakeDraggable(bag, function(self)
+            db.bags[BagKey(self)] = ReadPosition(self)
+        end)
+        AddScript(bag, "OnShow", function(self)
+            if not Enabled() then return end
+            ApplyPosition(self, db.bags[BagKey(self)])
+        end)
     end
-    if not found then return end
-    bagsHooked = true
 
     -- Blizzard re-anchors all open bags whenever one opens or closes. Run
     -- after it so the saved positions win. Both hooks are guarded because the
@@ -186,6 +309,87 @@ local function SetupBags()
     if type(ContainerFrame_GenerateFrame) == "function" then
         hooksecurefunc("ContainerFrame_GenerateFrame", ApplyBagPositions)
     end
+    return true
+end
+
+local function SetupBags()
+    if bagsHooked then return end
+    local ok, result = pcall(SetupBagsUnsafe)
+    if not ok then
+        bagsHooked = true -- do not retry a broken hook on every refresh
+        Report("bags", result)
+    elseif result then
+        bagsHooked = true
+    end
+end
+
+-- Diagnostics --------------------------------------------------------------
+
+local function FrameChain(frame)
+    local parts = {}
+    local f = frame
+    while f and f ~= UIParent and #parts < 8 do
+        local name = f.GetName and f:GetName()
+        parts[#parts + 1] = name or ("<" .. (f.GetObjectType and f:GetObjectType() or "?") .. ">")
+        f = f.GetParent and f:GetParent()
+    end
+    return table.concat(parts, " > ")
+end
+
+local function MouseFrames()
+    if type(GetMouseFoci) == "function" then return GetMouseFoci() end
+    if type(GetMouseFocus) == "function" then return { GetMouseFocus() } end
+    return {}
+end
+
+function UlRemedy.MovableWindowsDebug()
+    local p = print
+    p("|cffffcc00" .. UlRemedy.name .. "|r movable windows diagnostics")
+    p("  enabled: " .. tostring(Enabled()) .. ", db: " .. tostring(db ~= nil)
+        .. ", bags hooked: " .. tostring(bagsHooked))
+    p("  API: SetUIPanelAttribute=" .. type(SetUIPanelAttribute)
+        .. " ShowUIPanel=" .. type(ShowUIPanel)
+        .. " UpdateContainerFrameAnchors=" .. type(UpdateContainerFrameAnchors)
+        .. " ContainerFrame_GenerateFrame=" .. type(ContainerFrame_GenerateFrame)
+        .. " NUM_CONTAINER_FRAMES=" .. tostring(NUM_CONTAINER_FRAMES)
+        .. " CombinedBags=" .. tostring(ContainerFrameCombinedBags ~= nil))
+
+    local names = {}
+    for name in pairs(handled) do names[#names + 1] = name end
+    table.sort(names)
+    p("  handled (" .. #names .. "):")
+    for _, name in ipairs(names) do
+        local f = _G[name]
+        local shown = f and f.IsShown and f:IsShown()
+        local drag = f and f.GetScript and f:GetScript("OnDragStart") and "drag" or "nodrag"
+        local pos = db and db.frames[name]
+        p("    " .. name .. ": area=" .. tostring(PanelArea(name)) .. " shown=" .. tostring(shown)
+            .. " " .. drag .. (pos and string.format(" saved=(%.0f,%.0f)", pos.x, pos.y) or "")
+            .. (errors[name] and (" |cffff4444error: " .. errors[name] .. "|r") or ""))
+    end
+    if errors.bags then p("  bags error: |cffff4444" .. errors.bags .. "|r") end
+
+    local panels = {}
+    if UIPanelWindows then
+        for name, info in pairs(UIPanelWindows) do
+            if not handled[name] then
+                panels[#panels + 1] = name .. "=" .. tostring(type(info) == "table" and info.area or "?")
+            end
+        end
+    end
+    table.sort(panels)
+    p("  panels not handled: " .. (#panels > 0 and table.concat(panels, ", ") or "none"))
+
+    local bags = {}
+    for _, bag in ipairs(BagFrames()) do
+        if bag:IsShown() then bags[#bags + 1] = bag:GetName() .. "(id " .. tostring(BagKey(bag)) .. ")" end
+    end
+    p("  open bags: " .. (#bags > 0 and table.concat(bags, ", ") or "none"))
+
+    for _, f in ipairs(MouseFrames()) do
+        if f and f ~= WorldFrame then p("  under mouse: " .. FrameChain(f)) end
+    end
+    p("  Hover a window and run /ur win again to see its frame name.")
 end
 
 -- Public API used by Core.lua ---------------------------------------------
@@ -194,9 +398,8 @@ end
 -- at login, after each load-on-demand Blizzard addon, and on toggle.
 function UlRemedy.RefreshMovableWindows()
     if not db or not Enabled() then return end
-    for _, name in ipairs(PANELS) do
-        SetupPanel(name)
-    end
+    HookPanelFunctions()
+    SetupAllPanels()
     SetupBags()
 end
 
@@ -216,7 +419,8 @@ frame:SetScript("OnEvent", function(self, event, arg1)
             InitDB()
         elseif db then
             -- A load-on-demand Blizzard addon (trade skills, crafting,
-            -- talents, trainer) may have just created one of our frames.
+            -- talents, trainer, guild) may have just created one of our
+            -- frames or registered new panels.
             UlRemedy.RefreshMovableWindows()
         end
     elseif event == "PLAYER_LOGIN" then

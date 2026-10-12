@@ -79,7 +79,10 @@ local AREAS = { left = true, center = true, right = true, doublewide = true }
 
 -- Child regions that commonly sit on top of a window's title bar with the
 -- mouse enabled, which would otherwise eat the drag before the window sees it.
-local TITLE_CHILDREN = { "TitleContainer", "TitleBar", "Header", "NineSlice" }
+-- Only children that already take the mouse are touched: enabling the mouse
+-- on a child that covers the window (NineSlice, for one) blocks every click
+-- to the buttons underneath it.
+local TITLE_CHILDREN = { "TitleContainer", "TitleBar" }
 
 local db
 local handled = {}       -- frame name -> true once detached and hooked
@@ -151,7 +154,11 @@ end
 -- window itself, different for a title bar child). onStop saves.
 local function DragFrom(region, frame, onStop)
     if type(region.RegisterForDrag) ~= "function" then return end
-    region:EnableMouse(true)
+    if region == frame then
+        region:EnableMouse(true)
+    elseif not region:IsMouseEnabled() then
+        return
+    end
     region:RegisterForDrag("LeftButton")
     AddScript(region, "OnDragStart", function()
         if not Enabled() then return end

@@ -9,6 +9,7 @@
     "README.md",
     ".pkgmeta",
     ".gitattributes",
-    ".gitignore"
+    ".gitignore",
+    "tools/*"
   ]
 }

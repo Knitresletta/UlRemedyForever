@@ -11,6 +11,7 @@ local DEFAULTS = {
     cursor      = true,
     windows     = true,
     inventory   = true,
+    reagents    = true,
     flightpaths = true,
     transports  = true,
 }
@@ -60,6 +61,7 @@ local FEATURES = {
     { key = "cursor",      label = "Cursor Ring" },
     { key = "windows",     label = "Movable Windows (drag Blizzard windows and bags; positions are remembered)" },
     { key = "inventory",   label = "Inventory Tracker" },
+    { key = "reagents",    label = "Reagent Tooltip (which professions use an item)" },
     { key = "flightpaths", label = "Flight Paths on Map" },
     { key = "transports",  label = "Boats, Zeppelins, Tram and Portals on Map" },
 }

@@ -6,3 +6,4 @@ ignore:
   - .github
   - README.md
   - .curseforge.json
+  - tools

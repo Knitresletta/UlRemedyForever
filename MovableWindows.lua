@@ -189,19 +189,20 @@ end
 
 -- Panels (UIPanelWindows) --------------------------------------------------
 
--- Take the frame out of UIParent's panel manager. SetUIPanelAttribute is the
--- official way; fall back to editing the table and attributes directly on a
--- client that lacks it.
+-- Take the frame out of UIParent's panel manager. A window can be registered
+-- in two ways: an entry in the UIPanelWindows table, or UIPanelLayout-*
+-- attributes set straight on the frame (newer Blizzard XML does this, and
+-- the manager caches table entries into the same attributes on first use).
+-- Clear both. The manager reads the area attribute once "defined" is set,
+-- so an attribute-defined frame with a nil area is a free frame.
 local function DetachFromPanelManager(frame, name)
-    if not UIPanelWindows or not UIPanelWindows[name] then return end
-    if type(SetUIPanelAttribute) == "function" then
+    if UIPanelWindows and UIPanelWindows[name] and type(SetUIPanelAttribute) == "function" then
         SetUIPanelAttribute(frame, "area", nil)
-    else
-        UIPanelWindows[name] = nil
-        if frame:GetAttribute("UIPanelLayout-defined") then
-            frame:SetAttribute("UIPanelLayout-area", nil)
-        end
     end
+    if frame:GetAttribute("UIPanelLayout-defined") then
+        frame:SetAttribute("UIPanelLayout-area", nil)
+    end
+    if UIPanelWindows then UIPanelWindows[name] = nil end
 end
 
 local function AddToEscapeList(name)
@@ -248,7 +249,15 @@ local function HookPanelFunctions()
         hooksecurefunc("ShowUIPanel", function(frame)
             if not Enabled() or type(frame) ~= "table" then return end
             local name = frame.GetName and frame:GetName()
-            if name and handled[name] and not frame:IsShown() then frame:Show() end
+            if not name then return end
+            if not handled[name] and not EXCLUDE[name] then
+                -- A panel we did not know about (registered by attributes
+                -- rather than the table). Detach it now; from the next show
+                -- on it is free.
+                local area = frame.GetAttribute and frame:GetAttribute("UIPanelLayout-area")
+                if area and not SKIP_AREAS[area] then SetupPanel(name) end
+            end
+            if handled[name] and not frame:IsShown() then frame:Show() end
         end)
     end
     if type(HideUIPanel) == "function" then
@@ -444,7 +453,14 @@ function UlRemedy.MovableWindowsDebug()
     p("  open bags: " .. (#bags > 0 and table.concat(bags, ", ") or "none"))
 
     for _, f in ipairs(MouseFrames()) do
-        if f and f ~= WorldFrame then p("  under mouse: " .. FrameChain(f)) end
+        if f and f ~= WorldFrame then
+            local top = f
+            while top:GetParent() and top:GetParent() ~= UIParent do top = top:GetParent() end
+            local topName = top.GetName and top:GetName() or "?"
+            p("  under mouse: " .. FrameChain(f))
+            p("  window: " .. topName .. " area=" .. tostring(PanelArea(topName))
+                .. " handled=" .. tostring(handled[topName] or false))
+        end
     end
     p("  Hover a window and run /ur win again to see its frame name.")
 end

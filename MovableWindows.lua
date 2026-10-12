@@ -22,8 +22,13 @@
 -- even on a client whose panel code bails out on an area-less frame.
 --
 -- Which windows: every entry in UIPanelWindows except full-screen panels and
--- a short exclusion list, plus a named list for windows that are not panels
--- on every client. A window left inside the manager misbehaves next to the
+-- an exclusion list, plus a named list for windows that are not panels on
+-- every client. The spellbook (PlayerSpellsFrame on this client) is the big
+-- exception: its show path reads secret values, so it stays managed and only
+-- gets drag plus a remembered position, re-applied after every layout pass.
+-- When a managed panel opens, the manager closes everything in
+-- UISpecialFrames, our detached windows included; the ShowUIPanel hook
+-- re-shows the ones that were hidden in that same tick. A window left inside the manager misbehaves next to the
 -- detached ones: the manager raises it on every layout update and runs
 -- CloseWindows when it is shown, which also closes everything in
 -- UISpecialFrames. So the rule is all or nothing, not a list of areas. This way Forever-only windows
@@ -81,6 +86,19 @@ local EXCLUDE = {
     StoreFrame = true,
     EditModeManagerFrame = true,
     MacOptionsFrame = true,
+    -- Never detached on this client: their show path reads "secret" values
+    -- (12.x cooldown and combat data) that only untainted Blizzard code may
+    -- touch. Changing their panel attributes taints the show and they error.
+    PlayerSpellsFrame = true,       -- spellbook and talents
+    CooldownViewerSettings = true,
+    CinematicFrame = true,
+}
+
+-- Windows left inside the panel manager but still draggable and remembered.
+-- Nothing of theirs is modified; the saved position is re-applied after the
+-- manager has done its own layout.
+local MANAGED_MOVERS = {
+    "PlayerSpellsFrame",
 }
 
 -- Areas never detached: full-screen panels manage the whole screen themselves.
@@ -95,6 +113,8 @@ local TITLE_CHILDREN = { "TitleContainer", "TitleBar" }
 
 local db
 local handled = {}       -- frame name -> true once detached and hooked
+local managed = {}       -- frame name -> true for MANAGED_MOVERS once hooked
+local hiddenAt = {}      -- frame name -> GetTime() of the last OnHide
 local errors = {}        -- frame name -> last error text, for /ur win
 local bagsHooked = false
 local panelHooksDone = false
@@ -237,7 +257,47 @@ local function SetupPanelUnsafe(name, frame)
         if not Enabled() then return end
         PlaceWindow(self, db.frames[name])
     end)
+    AddScript(frame, "OnHide", function()
+        hiddenAt[name] = GetTime()
+    end)
     PlaceWindow(frame, db.frames[name])
+end
+
+-- A window that stays inside the manager: drag and remember only.
+local function SetupManagedMover(name)
+    if managed[name] then return end
+    local frame = _G[name]
+    if type(frame) ~= "table" or type(frame.GetObjectType) ~= "function" then return end
+    managed[name] = true
+    local ok, err = pcall(function()
+        MakeDraggable(frame, function(self)
+            db.frames[name] = ReadPosition(self)
+        end)
+    end)
+    if not ok then Report(name, err) end
+end
+
+local function ReapplyManagedMovers()
+    if not Enabled() then return end
+    for name in pairs(managed) do
+        local frame = _G[name]
+        if frame and frame:IsShown() and db.frames[name] then
+            ApplyPosition(frame, db.frames[name])
+        end
+    end
+end
+
+-- Re-show our detached windows that a managed panel just closed on its way
+-- in. They were hidden in this same tick, which is how we tell the manager's
+-- collateral closes apart from the user pressing Escape.
+local function ReshowCollateral()
+    local now = GetTime()
+    for name in pairs(handled) do
+        local frame = _G[name]
+        if frame and not frame:IsShown() and hiddenAt[name] == now then
+            frame:Show()
+        end
+    end
 end
 
 local function SetupPanel(name)
@@ -272,13 +332,13 @@ local function HookPanelFunctions()
                 local tableArea = UIPanelWindows and UIPanelWindows[name] and UIPanelWindows[name].area
                 db.seen[name] = tostring(area) .. "/" .. tostring(tableArea) .. (handled[name] and " handled" or " free")
             end
-            if handled[name] then
-                -- Blizzard code can put the area back (some frames set their
-                -- layout attributes on show). Clear it again and note it.
-                if frame.GetAttribute and frame:GetAttribute("UIPanelLayout-area") then
-                    frame:SetAttribute("UIPanelLayout-area", nil)
-                    errors[name] = "area was re-set by the client on show, cleared again"
-                end
+            if not handled[name] then
+                -- A panel the manager still owns just opened and closed our
+                -- windows on the way. Put them back.
+                ReshowCollateral()
+            end
+            if managed[name] then
+                ReapplyManagedMovers()
             end
             if not handled[name] and not EXCLUDE[name] then
                 -- A panel we did not know about (registered by attributes
@@ -295,7 +355,13 @@ local function HookPanelFunctions()
             if not Enabled() or type(frame) ~= "table" then return end
             local name = frame.GetName and frame:GetName()
             if name and handled[name] and frame:IsShown() then frame:Hide() end
+            ReapplyManagedMovers()
         end)
+    end
+    for _, fn in ipairs({ "UpdateUIPanelPositions", "UIParent_ManageFramePositions" }) do
+        if type(_G[fn]) == "function" then
+            hooksecurefunc(fn, ReapplyManagedMovers)
+        end
     end
 end
 
@@ -319,6 +385,9 @@ local function SetupAllPanels()
     end
     for _, name in ipairs(NAMED) do
         SetupPanel(name)
+    end
+    for _, name in ipairs(MANAGED_MOVERS) do
+        SetupManagedMover(name)
     end
 end
 
@@ -454,6 +523,10 @@ function UlRemedy.MovableWindowsDebug()
         end
     end
     p("  ok (" .. #ok .. "): " .. table.concat(ok, ", "))
+    local mv = {}
+    for name in pairs(managed) do mv[#mv + 1] = name end
+    table.sort(mv)
+    p("  managed movers (drag and remember only): " .. (#mv > 0 and table.concat(mv, ", ") or "none"))
     for _, name in ipairs(bad) do
         p("  |cffff4444setup error|r " .. name .. ": " .. errors[name])
     end

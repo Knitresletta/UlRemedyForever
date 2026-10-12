@@ -260,7 +260,26 @@ local function HookPanelFunctions()
         hooksecurefunc("ShowUIPanel", function(frame)
             if not Enabled() or type(frame) ~= "table" then return end
             local name = frame.GetName and frame:GetName()
-            if not name then return end
+            if not name then
+                if db then db.seen = db.seen or {}; db.seen["<unnamed>"] = "?" end
+                return
+            end
+            -- Diagnostics: remember every panel that comes through here,
+            -- with the area the manager sees for it right now.
+            if db then
+                db.seen = db.seen or {}
+                local area = frame.GetAttribute and frame:GetAttribute("UIPanelLayout-area")
+                local tableArea = UIPanelWindows and UIPanelWindows[name] and UIPanelWindows[name].area
+                db.seen[name] = tostring(area) .. "/" .. tostring(tableArea) .. (handled[name] and " handled" or " free")
+            end
+            if handled[name] then
+                -- Blizzard code can put the area back (some frames set their
+                -- layout attributes on show). Clear it again and note it.
+                if frame.GetAttribute and frame:GetAttribute("UIPanelLayout-area") then
+                    frame:SetAttribute("UIPanelLayout-area", nil)
+                    errors[name] = "area was re-set by the client on show, cleared again"
+                end
+            end
             if not handled[name] and not EXCLUDE[name] then
                 -- A panel we did not know about (registered by attributes
                 -- rather than the table). Detach it now; from the next show
@@ -409,7 +428,7 @@ end
 
 function UlRemedy.MovableWindowsDebug()
     local p = print
-    p("|cffffcc00" .. UlRemedy.name .. "|r movable windows diagnostics")
+    p("|cffffcc00" .. UlRemedy.name .. " " .. UlRemedy.Version() .. "|r movable windows diagnostics")
     p("  enabled: " .. tostring(Enabled()) .. ", db: " .. tostring(db ~= nil)
         .. ", bags hooked: " .. tostring(bagsHooked))
     p("  API: SetUIPanelAttribute=" .. type(SetUIPanelAttribute)
@@ -457,6 +476,15 @@ function UlRemedy.MovableWindowsDebug()
     table.sort(panels)
     p("  panels not handled: " .. (#panels > 0 and table.concat(panels, ", ") or "none"))
 
+    local seen = {}
+    if db and db.seen then
+        for name, info in pairs(db.seen) do seen[#seen + 1] = name .. " " .. info end
+    end
+    table.sort(seen)
+    p("  panels shown via the manager (name attr/table state):")
+    for _, line in ipairs(seen) do p("    " .. line) end
+    if #seen == 0 then p("    none yet") end
+
     local bags = {}
     for _, bag in ipairs(BagFrames()) do
         if bag:IsShown() then bags[#bags + 1] = bag:GetName() .. "(id " .. tostring(BagKey(bag)) .. ")" end
@@ -493,6 +521,7 @@ function UlRemedy.ResetWindowPositions()
     wipe(db.frames)
     wipe(db.bags)
     db.errors = nil
+    db.seen = nil
     print(UlRemedy.name .. ": window positions forgotten. Type /reload to put the windows back where Blizzard puts them.")
 end
 

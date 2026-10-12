@@ -24,6 +24,12 @@ local function InitDB()
     UlRemedy.enabled = UlRemedyForeverDB
 end
 
+function UlRemedy.Version()
+    local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+    local v = get and get(UlRemedy.name, "Version")
+    return v and ("v" .. v) or "(unknown version)"
+end
+
 function UlRemedy.MoneyText(amount)
     local coinText = (C_CurrencyInfo and C_CurrencyInfo.GetCoinTextureString) or GetCoinTextureString
     if coinText then
@@ -128,7 +134,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         InitDB()
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
-        print(UlRemedy.name .. " loaded. Type |cffffcc00/ur|r to see commands.")
+        print(UlRemedy.name .. " " .. UlRemedy.Version() .. " loaded. Type |cffffcc00/ur|r to see commands.")
         self:UnregisterEvent("PLAYER_LOGIN")
     end
 end)

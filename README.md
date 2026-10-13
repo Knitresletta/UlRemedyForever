@@ -30,6 +30,8 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Reagent Tooltip**: Items that are used as a reagent in a profession recipe get a "Used by: Alchemy, Engineering" line in their tooltip. Professions this character knows are green, the rest grey. Smelting counts as Mining, so ore shows Mining next to the professions that use the bars, and rogue poison materials show Poisons. Two sources feed it. A shipped table generated from game data by `tools/build_reagents.py` (currently from the vanilla 1.12 database, so it does not know recipes that are new in Forever), and what the addon learns in play: every time a profession window has its recipe list up, every recipe's reagents are read and remembered account-wide. Open each of your professions once and the line is right for Forever for those professions, on all your characters. Recipes the window does not list (unlearned drop recipes) are not seen, so learning only ever adds professions to an item, never removes one. `/ur rs` shows what has been learned, `/ur rsreset` forgets it.
 
+**Auction Prices**: Items get an "Auction:" line in their tooltip with the lowest buyout per unit the auction house showed last time, and how long ago that was, right under the vendor sell price and in the same coin format. For a stack, a second line gives the price of the whole stack ("Auction x20:"). The game has no price database to ask, so the addon remembers what the auction house shows while you are there: everything you browse or search for is remembered on its own, and a **Scan prices** button in the auction house window reads the whole list (the client allows that about every 15 minutes). Prices are kept per realm and faction, account-wide. No average and no history, just the last thing the auction house showed. `/ur ah` prints what is known and which auction house data the client delivers, `/ur ahreset` forgets the prices for this realm and faction.
+
 **Flight Paths**: Shows every flight master for your faction on the world map, including the ones you have not discovered yet. Undiscovered ones are tinted red, drawn slightly larger and have a pulsing red ring behind them; the ones you know are drawn as the normal faction icon. The locations come from the Forever client's own flight path table (so new Forever zones such as Riverglades and Mount Hyjal are included) and are projected onto whichever map you have open. Flight points the game already draws itself are left alone. Clicking a pin sets a map waypoint where the client supports it. The Forever client currently reports every flight path as known, so the addon keeps its own list instead: each time you open a flight master, every path you can fly to from there is saved for that character (paths the flight master lists as unreachable are ignored, since on Forever that includes undiscovered ones). Until you have done that once, all paths show as undiscovered. `/ur fp` prints diagnostics for the open map.
 
 **Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
@@ -38,7 +40,7 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 ## Options and commands
 
-Type `/ur` to open the options window: one checkbox per feature, grouped under Vendor, Group, Interface, Items and Map, in the game's own style, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
+Type `/ur` to open the options window: one checkbox per feature, grouped under Vendor, Group, Interface, Items and Map, in the game's own style, in two columns, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
 
 | Command | Description |
 |---------|-------------|
@@ -59,6 +61,9 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur reagents` | Toggle the reagent tooltip line |
 | `/ur rs` | Print what the reagent tooltip has learned from profession windows |
 | `/ur rsreset` | Forget what the reagent tooltip learned in play |
+| `/ur auction` | Toggle the auction price tooltip lines and the Scan prices button |
+| `/ur ah` | Print auction price diagnostics (items known, last scan, what the client offers) |
+| `/ur ahreset` | Forget every auction price for this realm and faction |
 | `/ur flightpaths` | Toggle flight path pins on the world map |
 | `/ur transports` | Toggle boat, zeppelin, tram and portal pins on the world map |
 | `/ur rolls` | Toggle the loot roll window |

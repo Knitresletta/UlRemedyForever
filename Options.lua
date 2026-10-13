@@ -6,19 +6,29 @@
 -- Clicking a box goes through UlRemedy.SetFeature, the same path as the
 -- chat command, so modules get notified the same way either route is used.
 -- The window is closed by Escape (UISpecialFrames) and can be dragged.
+--
+-- Layout: the groups are laid out in two columns of equal width, split so
+-- the columns come out as even as whole groups allow. The window's height
+-- follows the taller column, so adding a feature usually does not change
+-- it. When both columns fill up, the next step is scrolling or collapsible
+-- groups, not a taller window.
 
 local ROW_H = 30
 local HEADER_H = 24
 local LEFT = 16
-local WIDTH = 520
+local GAP = 12                      -- between the two columns
+local COLUMN_W = 400
+local WIDTH = LEFT + COLUMN_W + GAP + COLUMN_W + LEFT
 
 local window
 local rows = {}
 
-local function CreateRow(parent, y, feature)
+-- x is the column's left edge, right its right edge (offsets from the
+-- window's top-left corner).
+local function CreateRow(parent, x, right, y, feature)
     local box = CreateFrame("CheckButton", "UlRemedyOption" .. feature.key, parent, "UICheckButtonTemplate")
     box:SetSize(26, 26)
-    box:SetPoint("TOPLEFT", parent, "TOPLEFT", LEFT + 8, y)
+    box:SetPoint("TOPLEFT", parent, "TOPLEFT", x + 8, y)
     if box.Text then box.Text:SetText("") end
     box.key = feature.key
     box:SetScript("OnClick", function(self)
@@ -32,7 +42,7 @@ local function CreateRow(parent, y, feature)
 
     local desc = parent:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     desc:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -1)
-    desc:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
+    desc:SetPoint("RIGHT", parent, "LEFT", right, 0)
     desc:SetJustifyH("LEFT")
     desc:SetWordWrap(false)
     desc:SetTextColor(0.7, 0.7, 0.7)
@@ -41,22 +51,22 @@ local function CreateRow(parent, y, feature)
     -- Clicking the name toggles too, like a settings panel.
     local hit = CreateFrame("Button", nil, parent)
     hit:SetPoint("LEFT", box, "RIGHT", 0, 0)
-    hit:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
+    hit:SetPoint("RIGHT", parent, "LEFT", right, 0)
     hit:SetHeight(ROW_H - 2)
     hit:SetScript("OnClick", function() box:Click() end)
 
     return box
 end
 
-local function CreateHeader(parent, y, text)
+local function CreateHeader(parent, x, right, y, text)
     local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-    label:SetPoint("TOPLEFT", parent, "TOPLEFT", LEFT, y)
+    label:SetPoint("TOPLEFT", parent, "TOPLEFT", x, y)
     label:SetText(text)
     local line = parent:CreateTexture(nil, "ARTWORK")
     line:SetColorTexture(1, 0.82, 0, 0.25)
     line:SetHeight(1)
     line:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
-    line:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
+    line:SetPoint("RIGHT", parent, "LEFT", right, 0)
 end
 
 -- Features grouped in the order Core lists the groups; anything with an
@@ -85,12 +95,34 @@ local function GroupedFeatures()
     return kept
 end
 
+local function GroupHeight(g)
+    return HEADER_H + 6 + #g.features * ROW_H + 6
+end
+
+-- Split the groups, in order, into two columns as evenly as whole groups
+-- allow: the left column takes groups until adding the next one would
+-- push it past half of the total.
+local function SplitColumns(groups)
+    local total = 0
+    for _, g in ipairs(groups) do total = total + GroupHeight(g) end
+    local left, right, leftH = {}, {}, 0
+    for _, g in ipairs(groups) do
+        local h = GroupHeight(g)
+        if #right == 0 and (leftH + h <= total / 2 or #left == 0) then
+            left[#left + 1] = g
+            leftH = leftH + h
+        else
+            right[#right + 1] = g
+        end
+    end
+    local rightH = total - leftH
+    return left, right, math.max(leftH, rightH)
+end
+
 local function CreateWindow()
     local groups = GroupedFeatures()
-    local height = 36 + 84
-    for _, g in ipairs(groups) do
-        height = height + HEADER_H + 6 + #g.features * ROW_H + 6
-    end
+    local left, right, columnH = SplitColumns(groups)
+    local height = 36 + 84 + columnH
 
     local f = CreateFrame("Frame", "UlRemedyOptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     f:SetSize(WIDTH, height)
@@ -111,16 +143,21 @@ local function CreateWindow()
     local title = f.TitleText or (f.TitleContainer and f.TitleContainer.TitleText)
     if title then title:SetText(UlRemedy.name .. " " .. UlRemedy.Version()) end
 
-    local y = -32
-    for _, g in ipairs(groups) do
-        CreateHeader(f, y, g.name)
-        y = y - HEADER_H - 6
-        for _, feature in ipairs(g.features) do
-            rows[feature.key] = CreateRow(f, y, feature)
-            y = y - ROW_H
+    local function FillColumn(list, x)
+        local y = -32
+        local rightEdge = x + COLUMN_W
+        for _, g in ipairs(list) do
+            CreateHeader(f, x, rightEdge, y, g.name)
+            y = y - HEADER_H - 6
+            for _, feature in ipairs(g.features) do
+                rows[feature.key] = CreateRow(f, x, rightEdge, y, feature)
+                y = y - ROW_H
+            end
+            y = y - 6
         end
-        y = y - 6
     end
+    FillColumn(left, LEFT)
+    FillColumn(right, LEFT + COLUMN_W + GAP)
 
     -- Buttons for the actions that are not on/off switches.
     local actions = {

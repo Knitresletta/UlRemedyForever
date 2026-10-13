@@ -12,6 +12,7 @@ local DEFAULTS = {
     windows     = true,
     inventory   = true,
     reagents    = true,
+    auction     = true,
     flightpaths = true,
     transports  = true,
     rolls       = true,
@@ -67,6 +68,7 @@ local FEATURES = {
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
+    { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },
     { key = "flightpaths", group = "Map",       label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
     { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
 }
@@ -86,6 +88,8 @@ local function PrintHelp()
     print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur rs: print what the reagent tooltip has learned from profession windows")
     print("  /ur rsreset: forget what the reagent tooltip learned in play")
+    print("  /ur ah: print auction price diagnostics (items known, last scan, what the client offers)")
+    print("  /ur ahreset: forget every auction price for this realm and faction")
     print("  /ur rollside: cycle where the loot roll window sits (party frames, chat, free)")
     print("  /ur rolltest: show a test loot roll so the window can be placed")
     print("  /ur winreset: forget saved window positions")
@@ -102,6 +106,7 @@ local function NotifyModules()
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
     if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
     if UlRemedy.RefreshLootRolls then UlRemedy.RefreshLootRolls() end
+    if UlRemedy.RefreshAuctionPrices then UlRemedy.RefreshAuctionPrices() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -160,6 +165,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "rsreset" then
         if UlRemedy.ResetReagentData then UlRemedy.ResetReagentData() end
+        return
+    end
+    if cmd == "ah" then
+        if UlRemedy.AuctionDebug then UlRemedy.AuctionDebug() end
+        return
+    end
+    if cmd == "ahreset" then
+        if UlRemedy.ResetAuctionPrices then UlRemedy.ResetAuctionPrices() end
         return
     end
     if cmd == "rollside" then

@@ -327,11 +327,12 @@ local function AgeText(at)
     return math.floor(s / 86400) .. " d ago"
 end
 
+-- Plain text with coin icons, not Blizzard's SetTooltipMoney: that one
+-- lays out a money frame from font string widths, which are secret values
+-- in some tooltips (the loot roll window's item, for one) and the
+-- arithmetic on them errors when an addon triggered it. Text with |T coin
+-- textures needs no layout and looks the same.
 local function MoneyLine(tooltip, prefix, amount, suffix)
-    if type(SetTooltipMoney) == "function" then
-        local ok = pcall(SetTooltipMoney, tooltip, amount, nil, prefix, suffix)
-        if ok then return end
-    end
     tooltip:AddLine(prefix .. " " .. UlRemedy.MoneyText(amount) .. (suffix and (" " .. suffix) or ""), 1, 1, 1)
 end
 
@@ -454,7 +455,6 @@ function UlRemedy.AuctionDebug()
     api[#api + 1] = "ReplicateItems " .. ((C_AuctionHouse and C_AuctionHouse.ReplicateItems) and "yes" or "no")
     api[#api + 1] = "GetBrowseResults " .. ((C_AuctionHouse and C_AuctionHouse.GetBrowseResults) and "yes" or "no")
     api[#api + 1] = "GetAuctionItemInfo " .. (GetAuctionItemInfo and "yes" or "no")
-    api[#api + 1] = "SetTooltipMoney " .. (type(SetTooltipMoney) == "function" and "yes" or "no")
     api[#api + 1] = "GetPrimaryTooltipInfo " .. (GameTooltip.GetPrimaryTooltipInfo and "yes" or "no")
     print("  client: " .. table.concat(api, ", "))
     if scanJob then

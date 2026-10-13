@@ -3,15 +3,18 @@
 -- and what they rolled, with the item's icon so several rolls at once stay
 -- apart.
 --
--- Where the data comes from: the game does not send other players' roll
--- choices as an API event, but it prints them to chat ("X has selected
--- Need for: [item]", "Need Roll - 87 for [item] by X", "X won: [item]").
--- Those lines are matched against Blizzard's own format strings
--- (LOOT_ROLL_NEED and friends), turned into Lua patterns at load, so the
--- parsing follows the client's language. START_LOOT_ROLL tells us a roll
--- has begun and which item it is; the item link in each chat line ties
--- the choice to that roll. Several rolls for the same item at the same
--- time are shown as one block, since chat cannot tell them apart.
+-- Where the data comes from, two sources merged by item:
+--   * C_LootHistory (retail 10.x and later, which Forever's 12.x client
+--     has): LOOT_HISTORY_UPDATE_DROP delivers one record per drop with
+--     every eligible player's state (need, greed, pass, not yet rolled),
+--     their roll and the winner. This is the primary source on Forever,
+--     whose client no longer prints individual choices to chat.
+--   * Chat loot messages ("X has selected Need for: [item]", "Need Roll -
+--     87 for [item] by X", "X won: [item]") on clients that still print
+--     them, matched against Blizzard's own format strings compiled to Lua
+--     patterns at load, so the parsing follows the client's language.
+-- START_LOOT_ROLL opens a block as soon as a roll starts, whichever source
+-- fills it. Several rolls for the same item at once share one block.
 --
 -- Placement: anchored to the right of the party frames by default, with
 -- "left of party frames", "above the chat" and "free" (dragged anywhere)
@@ -19,6 +22,7 @@
 -- is only shown while a roll is active, plus a few seconds after it ends
 -- so the winner can be seen. /ur rolltest shows a fake roll with the
 -- current group so the window can be placed without waiting for loot.
+-- Nothing in the window reacts to the mouse except dragging.
 --
 -- Settings live in UlRemedyForeverRollDB (account-wide): side and the
 -- free position.
@@ -40,10 +44,10 @@ local SIDE_LABEL = {
 }
 
 local CHOICE = {
-    need = { atlas = "lootroll-toast-icon-need-up", file = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Need" },
-    greed = { atlas = "lootroll-toast-icon-greed-up", file = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = "Greed" },
-    pass = { atlas = "lootroll-toast-icon-pass-up", file = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = "Pass" },
-    disenchant = { atlas = "lootroll-toast-icon-transmog-up", file = "Interface\\Buttons\\UI-GroupLoot-DE-Up", label = "Disenchant" },
+    need = { atlases = { "lootroll-icon-need", "lootroll-toast-icon-need-up" }, file = "Interface\\Buttons\\UI-GroupLoot-Dice-Up", label = "Need" },
+    greed = { atlases = { "lootroll-icon-greed", "lootroll-toast-icon-greed-up" }, file = "Interface\\Buttons\\UI-GroupLoot-Coin-Up", label = "Greed" },
+    pass = { atlases = { "lootroll-icon-pass", "lootroll-toast-icon-pass-up" }, file = "Interface\\Buttons\\UI-GroupLoot-Pass-Up", label = "Pass" },
+    disenchant = { atlases = { "lootroll-icon-transmog", "lootroll-toast-icon-transmog-up" }, file = "Interface\\Buttons\\UI-GroupLoot-DE-Up", label = "Disenchant" },
 }
 
 local db
@@ -204,6 +208,13 @@ local function FindRoll(itemID)
     end
 end
 
+local function FindRollByHistory(encounterID, lootListID)
+    for _, roll in ipairs(rolls) do
+        if roll.encounterID == encounterID and roll.lootListID == lootListID then return roll end
+    end
+end
+
+-- members: ordered list of { name, class, choice, roll, winner }.
 local function NewRoll(link, texture, members)
     local roll = {
         itemID = ItemIDFromLink(link),
@@ -212,7 +223,6 @@ local function NewRoll(link, texture, members)
         started = GetTime(),
         expires = GetTime() + 75,
         members = members or GroupMembers(),
-        choices = {},   -- name -> { choice = "need", roll = 87 }
         finished = false,
         winner = nil,
     }
@@ -222,6 +232,18 @@ local function NewRoll(link, texture, members)
     end
     rolls[#rolls + 1] = roll
     return roll
+end
+
+local function Member(roll, name, class)
+    for _, m in ipairs(roll.members) do
+        if m.name == name then
+            if class and not m.class then m.class = class end
+            return m
+        end
+    end
+    local m = { name = name, class = class }
+    roll.members[#roll.members + 1] = m
+    return m
 end
 
 local function Finish(roll, winner)
@@ -240,11 +262,15 @@ local function SetChoiceTexture(texture, choice)
         texture:SetTexture(nil)
         return
     end
-    if C_Texture and C_Texture.GetAtlasInfo and C_Texture.GetAtlasInfo(info.atlas) then
-        texture:SetAtlas(info.atlas)
-    else
-        texture:SetTexture(info.file)
+    if C_Texture and C_Texture.GetAtlasInfo then
+        for _, atlas in ipairs(info.atlases) do
+            if C_Texture.GetAtlasInfo(atlas) then
+                texture:SetAtlas(atlas)
+                return
+            end
+        end
     end
+    texture:SetTexture(info.file)
 end
 
 local function ClassColor(class)
@@ -302,17 +328,6 @@ local function CreateBlock(index)
     b.title:SetJustifyH("LEFT")
     b.title:SetWordWrap(false)
 
-    b.iconButton = CreateFrame("Button", nil, b)
-    b.iconButton:SetAllPoints(b.icon)
-    b.iconButton:SetScript("OnEnter", function(self)
-        if b.link then
-            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-            GameTooltip:SetHyperlink(b.link)
-            GameTooltip:Show()
-        end
-    end)
-    b.iconButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
     b.rows = {}
     b.summary = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
     b.summary:SetJustifyH("LEFT")
@@ -367,17 +382,16 @@ local function FillBlock(block, roll)
         row:SetPoint("RIGHT", block, "RIGHT", 0, 0)
         row.name:SetText(member.name)
         row.name:SetTextColor(ClassColor(member.class))
-        local entry = roll.choices[member.name]
-        if entry then
-            SetChoiceTexture(row.choice, entry.choice)
+        if member.choice then
+            SetChoiceTexture(row.choice, member.choice)
             row.choice:SetAlpha(1)
-            local label = CHOICE[entry.choice] and CHOICE[entry.choice].label or ""
-            if entry.roll then
-                row.value:SetText(label .. " " .. entry.roll)
+            local label = CHOICE[member.choice] and CHOICE[member.choice].label or ""
+            if member.roll then
+                row.value:SetText(label .. " " .. member.roll)
             else
                 row.value:SetText(label)
             end
-            if roll.winner and member.name == roll.winner then
+            if member.winner or (roll.winner and member.name == roll.winner) then
                 row.value:SetTextColor(1, 0.82, 0)
             else
                 row.value:SetTextColor(0.9, 0.9, 0.9)
@@ -393,17 +407,14 @@ local function FillBlock(block, roll)
     end
     for i = shown + 1, #block.rows do block.rows[i]:Hide() end
 
-    -- Choices by people outside the first rows (big raids) as a summary.
+    -- Choices by people beyond the listed rows (big raids) as a summary.
     local extra = 0
     local counts = { need = 0, greed = 0, pass = 0, disenchant = 0 }
-    for name, entry in pairs(roll.choices) do
-        local listed = false
-        for i = 1, shown do
-            if members[i].name == name then listed = true break end
-        end
-        if not listed then
+    for i = shown + 1, #members do
+        local member = members[i]
+        if member.choice then
             extra = extra + 1
-            counts[entry.choice] = (counts[entry.choice] or 0) + 1
+            counts[member.choice] = (counts[member.choice] or 0) + 1
         end
     end
     if extra > 0 then
@@ -526,6 +537,67 @@ local function OnStartRoll(rollID, rollTime)
     Show()
 end
 
+-- Loot history state -> our choice keyword, nil while not rolled yet.
+local function ChoiceFromState(state)
+    local E = Enum.EncounterLootDropRollState
+    if not E or state == nil then return nil end
+    if state == E.NeedMainSpec or state == E.NeedOffSpec then return "need" end
+    if state == E.Greed then return "greed" end
+    if state == E.Pass then return "pass" end
+    if state == E.Transmog then return "disenchant" end
+    return nil
+end
+
+local function ApplyDrop(encounterID, lootListID, drop)
+    if not drop or not drop.itemHyperlink then return end
+    local roll = FindRollByHistory(encounterID, lootListID)
+    if not roll then
+        local itemID = ItemIDFromLink(drop.itemHyperlink)
+        roll = FindRoll(itemID)
+        if roll and roll.encounterID then roll = nil end  -- another drop of the same item
+        if not roll then roll = NewRoll(drop.itemHyperlink, nil, {}) end
+        roll.encounterID, roll.lootListID = encounterID, lootListID
+    end
+    -- The history lists every eligible player; rebuild the rows from it so
+    -- the order matches Blizzard's own (sorted by roll state).
+    local members = {}
+    for _, info in ipairs(drop.rollInfos or {}) do
+        members[#members + 1] = {
+            name = ShortName(info.playerName),
+            class = info.playerClass,
+            choice = ChoiceFromState(info.state),
+            roll = info.roll,
+            winner = info.isWinner,
+        }
+    end
+    if #members > 0 then roll.members = members end
+    if drop.winner and drop.winner.playerName then
+        Finish(roll, ShortName(drop.winner.playerName))
+    elseif drop.allPassed then
+        roll.allPassed = true
+        Finish(roll, nil)
+    elseif not roll.finished then
+        roll.expires = GetTime() + 75
+    end
+end
+
+local function OnHistoryDrop(encounterID, lootListID)
+    if not (C_LootHistory and C_LootHistory.GetSortedInfoForDrop) then return end
+    ApplyDrop(encounterID, lootListID, C_LootHistory.GetSortedInfoForDrop(encounterID, lootListID))
+    Show()
+end
+
+local function OnHistoryEncounter(encounterID)
+    if not (C_LootHistory and C_LootHistory.GetSortedDropsForEncounter) then return end
+    local drops = C_LootHistory.GetSortedDropsForEncounter(encounterID)
+    for _, drop in ipairs(drops or {}) do
+        if not (drop.winner or drop.allPassed) or FindRollByHistory(encounterID, drop.lootListID) then
+            ApplyDrop(encounterID, drop.lootListID, drop)
+        end
+    end
+    Show()
+end
+
 local function OnLootMessage(message)
     local kind, info = Parse(message)
     if not kind then return end
@@ -537,20 +609,13 @@ local function OnLootMessage(message)
     end
     local player = ShortName(info.player)
     if kind == "choice" then
-        local entry = roll.choices[player] or {}
-        entry.choice = info.choice
-        roll.choices[player] = entry
-        -- Someone who joined after the roll started still gets a row.
-        local listed = false
-        for _, m in ipairs(roll.members) do
-            if m.name == player then listed = true break end
-        end
-        if not listed then roll.members[#roll.members + 1] = { name = player } end
+        Member(roll, player).choice = info.choice
     elseif kind == "roll" then
-        local entry = roll.choices[player] or { choice = info.choice }
-        entry.roll = info.roll
-        roll.choices[player] = entry
+        local m = Member(roll, player)
+        m.choice = m.choice or info.choice
+        m.roll = info.roll
     elseif kind == "won" then
+        Member(roll, player).winner = true
         Finish(roll, player)
     elseif kind == "allpassed" then
         roll.allPassed = true
@@ -569,11 +634,14 @@ function UlRemedy.LootRollTest()
     local choices = { "need", "greed", "pass" }
     for i, m in ipairs(members) do
         if i > 1 then
-            roll.choices[m.name] = { choice = choices[(i % 3) + 1], roll = (i * 37) % 100 }
+            m.choice = choices[(i % 3) + 1]
+            m.roll = (i * 37) % 100
         end
     end
     Show()
     print(UlRemedy.name .. ": showing a test roll for 20 seconds. Drag the window to place it freely, or /ur rollside to cycle sides.")
+    print("  sources: loot history " .. ((C_LootHistory and C_LootHistory.GetSortedInfoForDrop) and "yes" or "no")
+        .. ", chat patterns " .. #patterns .. (lastError and (", last error: " .. lastError) or ""))
 end
 
 function UlRemedy.CycleLootRollSide()
@@ -608,6 +676,10 @@ frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("START_LOOT_ROLL")
 frame:RegisterEvent("CHAT_MSG_LOOT")
 frame:RegisterEvent("GROUP_ROSTER_UPDATE")
+if C_LootHistory then
+    frame:RegisterEvent("LOOT_HISTORY_UPDATE_DROP")
+    frame:RegisterEvent("LOOT_HISTORY_UPDATE_ENCOUNTER")
+end
 frame:SetScript("OnEvent", function(self, event, arg1, arg2)
     if event == "ADDON_LOADED" then
         if arg1 == UlRemedy.name then
@@ -626,6 +698,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2)
     local ok, err
     if event == "START_LOOT_ROLL" then
         ok, err = pcall(OnStartRoll, arg1, arg2)
+    elseif event == "LOOT_HISTORY_UPDATE_DROP" then
+        ok, err = pcall(OnHistoryDrop, arg1, arg2)
+    elseif event == "LOOT_HISTORY_UPDATE_ENCOUNTER" then
+        ok, err = pcall(OnHistoryEncounter, arg1)
     elseif event == "CHAT_MSG_LOOT" then
         ok, err = pcall(OnLootMessage, arg1)
     elseif event == "GROUP_ROSTER_UPDATE" then

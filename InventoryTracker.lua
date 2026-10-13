@@ -496,6 +496,7 @@ local function CreateWindow()
     f:SetFrameStrata("HIGH")
     f:SetToplevel(true)
     tinsert(UISpecialFrames, "UlRemedyInventoryFrame")
+    if f.CloseButton then f.CloseButton:SetScript("OnClick", function() f:Hide() end) end
 
     local title = f.TitleText or (f.TitleContainer and f.TitleContainer.TitleText)
     if title then title:SetText(UlRemedy.name .. ": Inventory") end

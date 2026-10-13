@@ -77,6 +77,8 @@ local function PrintHelp()
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur jd: print junk deleter diagnostics")
     print("  /ur vendorreset: reset the vendor window to its default size")
+    print("  /ur rs: print what the reagent tooltip has learned from profession windows")
+    print("  /ur rsreset: forget what the reagent tooltip learned in play")
     print("  /ur winreset: forget saved window positions")
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
@@ -116,6 +118,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "vendorreset" then
         if UlRemedy.ResetVendorWindow then UlRemedy.ResetVendorWindow() end
+        return
+    end
+    if cmd == "rs" then
+        if UlRemedy.ReagentDebug then UlRemedy.ReagentDebug() end
+        return
+    end
+    if cmd == "rsreset" then
+        if UlRemedy.ResetReagentData then UlRemedy.ResetReagentData() end
         return
     end
     if cmd == "win" then

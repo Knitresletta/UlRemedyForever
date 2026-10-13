@@ -30,7 +30,6 @@ local DB
 local known = {}             -- skill line id -> true
 local knownDirty = true
 local lastScan = {}          -- skill id -> GetTime() of the last scan
-local announced = {}         -- skill id -> true once reported this session
 local lastError
 
 local function Enabled()
@@ -214,11 +213,13 @@ local function Scan()
     else
         return
     end
-    if recipes > 0 then
-        DB.scanned[skillID] = { at = time(), recipes = recipes }
-    end
-    if (learned > 0 or not announced[skillID]) and recipes > 0 then
-        announced[skillID] = true
+    if recipes == 0 then return end
+    -- Say something only when there is news: new item uses, or a profession
+    -- read for the first time ever. Re-reading a known window after a reload
+    -- stays quiet; /ur reagents shows the state on demand.
+    local firstRead = not DB.scanned[skillID]
+    DB.scanned[skillID] = { at = time(), recipes = recipes }
+    if learned > 0 or firstRead then
         print(UlRemedy.name .. ": reagent tooltip read " .. recipes .. " " .. ProfessionName(skillID)
             .. " recipes" .. (learned > 0 and (", " .. learned .. " new item uses learned.") or "."))
     end

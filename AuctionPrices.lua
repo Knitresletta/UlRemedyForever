@@ -214,13 +214,25 @@ local function RequestScan()
     if not ok then Report(err) end
 end
 
+local buttonTries = 0
+local buttonNote = "not tried yet"
+
+-- The auction house window lives in Blizzard_AuctionHouseUI, which is
+-- loaded on demand, so at AUCTION_HOUSE_SHOW the frame may not exist yet.
+-- Retry a few times over the next seconds, and again when that addon loads.
 local function EnsureScanButton()
     if scanButton then
         scanButton:SetShown(Enabled())
         return
     end
     local parent = AuctionHouseFrame or AuctionFrame
-    if not parent then return end
+    if not parent then
+        buttonTries = buttonTries + 1
+        buttonNote = "no auction frame yet (try " .. buttonTries .. ")"
+        if buttonTries <= 10 then C_Timer.After(0.5, EnsureScanButton) end
+        return
+    end
+    buttonNote = "created on " .. (parent:GetName() or "?")
     scanButton = CreateFrame("Button", "UlRemedyAuctionScanButton", parent, "UIPanelButtonTemplate")
     scanButton:SetSize(110, 22)
     -- Top right of the window, left of the close button.
@@ -385,6 +397,9 @@ function UlRemedy.AuctionDebug()
     api[#api + 1] = "SetTooltipMoney " .. (type(SetTooltipMoney) == "function" and "yes" or "no")
     api[#api + 1] = "GetPrimaryTooltipInfo " .. (GameTooltip.GetPrimaryTooltipInfo and "yes" or "no")
     print("  client: " .. table.concat(api, ", "))
+    local shown = scanButton and (scanButton:IsShown() and "shown" or "hidden") or "none"
+    print("  scan button: " .. buttonNote .. ", " .. shown
+        .. ", auction frame " .. ((AuctionHouseFrame or AuctionFrame) and "exists" or "missing"))
     if lastError then print("  last error: " .. lastError) end
 end
 
@@ -419,7 +434,8 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 == UlRemedy.name then
             InitDB()
-            self:UnregisterEvent("ADDON_LOADED")
+        elseif arg1 == "Blizzard_AuctionHouseUI" or arg1 == "Blizzard_AuctionUI" then
+            if Enabled() then EnsureScanButton() end
         end
         return
     elseif event == "PLAYER_LOGIN" then

@@ -243,6 +243,10 @@ local function EnsureScanButton()
         scanButton:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -32, -4)
     end
     scanButton:SetText("Scan prices")
+    -- The window's border art is drawn over children at nearby frame
+    -- levels (the button took clicks but was invisible on 1.8.1), so lift
+    -- it a whole stratum. Tooltips still sit above it.
+    scanButton:SetFrameStrata("DIALOG")
     scanButton:SetFrameLevel(parent:GetFrameLevel() + 10)
     scanButton:SetScript("OnClick", RequestScan)
     scanButton:SetScript("OnEnter", function(self)

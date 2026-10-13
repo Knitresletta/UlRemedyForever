@@ -99,24 +99,33 @@ local function GroupHeight(g)
     return HEADER_H + 6 + #g.features * ROW_H + 6
 end
 
--- Split the groups, in order, into two columns as evenly as whole groups
--- allow: the left column takes groups until adding the next one would
--- push it past half of the total.
+-- Split the groups over two columns so the taller column is as short as
+-- possible. Every way of assigning groups to the two columns is tried
+-- (there are only a handful of groups); each column keeps Core's group
+-- order. The window's height follows the taller column, so a new feature
+-- usually changes which column a group sits in rather than the height.
 local function SplitColumns(groups)
-    local total = 0
-    for _, g in ipairs(groups) do total = total + GroupHeight(g) end
-    local left, right, leftH = {}, {}, 0
-    for _, g in ipairs(groups) do
-        local h = GroupHeight(g)
-        if #right == 0 and (leftH + h <= total / 2 or #left == 0) then
-            left[#left + 1] = g
-            leftH = leftH + h
-        else
-            right[#right + 1] = g
+    local n = #groups
+    local bestMask, bestH = 0, math.huge
+    for mask = 0, (2 ^ n) - 1 do
+        local leftH, rightH = 0, 0
+        for i, g in ipairs(groups) do
+            local bit = math.floor(mask / (2 ^ (i - 1))) % 2
+            if bit == 0 then leftH = leftH + GroupHeight(g) else rightH = rightH + GroupHeight(g) end
         end
+        local h = math.max(leftH, rightH)
+        -- Prefer the lower mask on ties: earlier groups stay left.
+        if h < bestH then bestH, bestMask = h, mask end
     end
-    local rightH = total - leftH
-    return left, right, math.max(leftH, rightH)
+    -- Swapping the columns changes nothing about the height, so make sure
+    -- the first group (Vendor) is top-left.
+    if bestMask % 2 == 1 then bestMask = (2 ^ n) - 1 - bestMask end
+    local left, right = {}, {}
+    for i, g in ipairs(groups) do
+        local bit = math.floor(bestMask / (2 ^ (i - 1))) % 2
+        if bit == 0 then left[#left + 1] = g else right[#right + 1] = g end
+    end
+    return left, right, bestH
 end
 
 local function CreateWindow()

@@ -179,6 +179,10 @@ local function FinishScan(job)
     if market then market.scanned = { at = time(), auctions = job.n, items = stored } end
     print(UlRemedy.name .. ": auction scan read " .. job.n .. " auctions, " .. stored .. " item prices stored.")
     if scanButton then scanButton:SetText("Scanned " .. stored) end
+    if UlRemedy.OnAuctionScanDone then
+        local ok, err = pcall(UlRemedy.OnAuctionScanDone, job.batch)
+        if not ok then Report(err) end
+    end
 end
 
 local function StepScan()
@@ -361,7 +365,7 @@ local function AddLines(tooltip, itemID)
     if not rec or not rec.p then return end
     tooltip.ulRemedyAuctionID = itemID
     local count = StackCount(tooltip)
-    MoneyLine(tooltip, "Auction:", rec.p, "(" .. AgeText(rec.at) .. ")")
+    MoneyLine(tooltip, "Auction:", rec.p, "(" .. AgeText(rec.at) .. (rec.s and ", shared" or "") .. ")")
     if count > 1 then
         MoneyLine(tooltip, "Auction x" .. count .. ":", rec.p * count)
     end
@@ -460,6 +464,31 @@ function UlRemedy.AuctionDebug()
     print("  scan button: " .. buttonNote .. ", " .. shown
         .. ", auction frame " .. ((AuctionHouseFrame or AuctionFrame) and "exists" or "missing"))
     if lastError then print("  last error: " .. lastError) end
+end
+
+------------------------------------------------------------------------
+-- For AuctionShare.lua
+------------------------------------------------------------------------
+
+-- The price table for this realm and faction: itemID -> { p, at, q, s }.
+-- s is set on prices that came from another player.
+function UlRemedy.AuctionMarket()
+    if not market then InitRealm() end
+    return market
+end
+
+-- Store a price heard from another player. Newer wins; a price we saw
+-- ourselves within the last ten minutes is kept over a shared one.
+function UlRemedy.AuctionMergeShared(itemID, price, at)
+    if not market then InitRealm() end
+    if not market then return false end
+    local cur = market.items[itemID]
+    if cur then
+        if cur.at and cur.at >= at then return false end
+        if not cur.s and cur.at and at - cur.at < 600 then return false end
+    end
+    market.items[itemID] = { p = price, at = at, q = 1, s = true }
+    return true
 end
 
 function UlRemedy.ResetAuctionPrices()

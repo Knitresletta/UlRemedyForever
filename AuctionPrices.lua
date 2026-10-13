@@ -36,6 +36,8 @@ local lastScanAt                -- GetTime() of the last full scan request
 local scanPending = false       -- a full scan was asked for and not yet read
 local scanButton
 
+local frame = CreateFrame("Frame", "UlRemedyAuctionPricesFrame")
+
 local function Enabled()
     return UlRemedy.enabled and UlRemedy.enabled.auction
 end
@@ -158,25 +160,66 @@ end
 
 -- The full list (Scan button). Both the retail replicate list and the
 -- classic list return the same positional values.
-local function ReadFullList(getNum, getInfo, source)
-    local n = getNum() or 0
-    local batch = NewBatch()
-    for i = 1, n do
-        local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID = getInfo(i)
-        buyout = PlainNumber(buyout)
-        count = PlainNumber(count) or 1
-        if buyout and buyout > 0 and count > 0 then
-            Note(batch, itemID, buyout / count, count)
-        end
-    end
-    local stored = Commit(batch, source)
-    -- The classic list event also fires for every ordinary browse page;
-    -- only a scan we asked for is announced.
-    if not scanPending then return end
-    scanPending = false
-    if market then market.scanned = { at = time(), auctions = n, items = stored } end
-    print(UlRemedy.name .. ": auction scan read " .. n .. " auctions, " .. stored .. " item prices stored.")
+--
+-- A full list is big (73 000 auctions on the Forever beta) and the client
+-- stops an addon that runs too long in one frame ("insecure scripts
+-- exceeded execution limit"), so the list is read in chunks, one chunk
+-- per frame, and written to the database when the last chunk is done.
+-- The client also fires the list-updated event again after the first
+-- time; only the one we asked for is read.
+local SCAN_CHUNK = 1500
+local scanJob                   -- { getInfo, source, index, n, batch }
+
+local function FinishScan(job)
+    scanJob = nil
+    frame:SetScript("OnUpdate", nil)
+    local stored = Commit(job.batch, job.source)
+    if market then market.scanned = { at = time(), auctions = job.n, items = stored } end
+    print(UlRemedy.name .. ": auction scan read " .. job.n .. " auctions, " .. stored .. " item prices stored.")
     if scanButton then scanButton:SetText("Scanned " .. stored) end
+end
+
+local function StepScan()
+    local job = scanJob
+    if not job then
+        frame:SetScript("OnUpdate", nil)
+        return
+    end
+    local last = math.min(job.index + SCAN_CHUNK - 1, job.n)
+    local ok, err = pcall(function()
+        for i = job.index, last do
+            local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID = job.getInfo(i)
+            buyout = PlainNumber(buyout)
+            count = PlainNumber(count) or 1
+            if buyout and buyout > 0 and count > 0 then
+                Note(job.batch, itemID, buyout / count, count)
+            end
+        end
+    end)
+    if not ok then
+        Report(err)
+        scanJob = nil
+        frame:SetScript("OnUpdate", nil)
+        if scanButton then scanButton:SetText("Scan failed") end
+        return
+    end
+    job.index = last + 1
+    if job.index > job.n then
+        FinishScan(job)
+    elseif scanButton then
+        scanButton:SetText(("Reading %d%%"):format(math.floor(100 * last / job.n)))
+    end
+end
+
+local function ReadFullList(getNum, getInfo, source)
+    if scanJob then return end
+    local n = getNum() or 0
+    scanJob = { getInfo = getInfo, source = source, index = 1, n = n, batch = NewBatch() }
+    if n == 0 then
+        FinishScan(scanJob)
+        return
+    end
+    frame:SetScript("OnUpdate", StepScan)
 end
 
 ------------------------------------------------------------------------
@@ -401,6 +444,9 @@ function UlRemedy.AuctionDebug()
     api[#api + 1] = "SetTooltipMoney " .. (type(SetTooltipMoney) == "function" and "yes" or "no")
     api[#api + 1] = "GetPrimaryTooltipInfo " .. (GameTooltip.GetPrimaryTooltipInfo and "yes" or "no")
     print("  client: " .. table.concat(api, ", "))
+    if scanJob then
+        print("  reading a full list: " .. (scanJob.index - 1) .. " of " .. scanJob.n .. " auctions so far.")
+    end
     local shown = scanButton and (scanButton:IsShown() and "shown" or "hidden") or "none"
     print("  scan button: " .. buttonNote .. ", " .. shown
         .. ", auction frame " .. ((AuctionHouseFrame or AuctionFrame) and "exists" or "missing"))
@@ -419,7 +465,6 @@ function UlRemedy.RefreshAuctionPrices()
     if scanButton then scanButton:SetShown(Enabled()) end
 end
 
-local frame = CreateFrame("Frame", "UlRemedyAuctionPricesFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 -- The retail and classic auction events do not all exist on one client,
@@ -459,11 +504,13 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         elseif event == "ITEM_SEARCH_RESULTS_UPDATED" or event == "ITEM_SEARCH_RESULTS_ADDED" then
             ReadItemResults(arg1)
         elseif event == "REPLICATE_ITEM_LIST_UPDATE" then
-            if C_AuctionHouse and C_AuctionHouse.GetNumReplicateItems then
+            if scanPending and C_AuctionHouse and C_AuctionHouse.GetNumReplicateItems then
+                scanPending = false
                 ReadFullList(C_AuctionHouse.GetNumReplicateItems, C_AuctionHouse.GetReplicateItemInfo, "replicate")
             end
         elseif event == "AUCTION_ITEM_LIST_UPDATE" then
-            if GetNumAuctionItems and GetAuctionItemInfo then
+            if scanPending and GetNumAuctionItems and GetAuctionItemInfo then
+                scanPending = false
                 ReadFullList(function() return GetNumAuctionItems("list") end,
                     function(i) return GetAuctionItemInfo("list", i) end, "classic")
             end

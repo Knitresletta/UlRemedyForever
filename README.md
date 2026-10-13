@@ -34,6 +34,8 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
 
+**Loot Rolls**: While a group loot roll is running, a small window lists every group member with what they chose (Need, Greed, Pass, Disenchant) and what they rolled, under the item's icon and name, so several rolls at once stay apart. The winner is shown for a few seconds after the roll ends. It sits to the right of the party frames by default; `/ur rollside` (or the button in `/ur`) cycles between right of the party frames, left of them, above the chat, and free, and dragging the window anywhere makes it free. `/ur rolltest` shows a fake roll with your current group so you can place it. The choices come from the loot messages the game prints to chat, matched against the client's own text templates, so the chat loot messages must not be filtered away.
+
 ## Options and commands
 
 Type `/ur` to open the options window: one checkbox per feature, in the game's own style, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
@@ -59,6 +61,9 @@ Type `/ur` to open the options window: one checkbox per feature, in the game's o
 | `/ur rsreset` | Forget what the reagent tooltip learned in play |
 | `/ur flightpaths` | Toggle flight path pins on the world map |
 | `/ur transports` | Toggle boat, zeppelin, tram and portal pins on the world map |
+| `/ur rolls` | Toggle the loot roll window |
+| `/ur rollside` | Cycle where the loot roll window sits (party frames, chat, free) |
+| `/ur rolltest` | Show a test loot roll with your current group |
 | `/ur fp` | Print flight path diagnostics for the open map |
 | `/ur fpreset` | Forget this character's known flight paths and sync again at a flight master |
 | `/ur jd` | Print junk deleter diagnostics (free slots, cheapest junk, last trigger) |

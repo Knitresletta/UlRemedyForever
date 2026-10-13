@@ -49,7 +49,7 @@ end
 
 local function CreateWindow()
     local features = UlRemedy.FEATURES or {}
-    local height = 36 + #features * ROW_H + 58
+    local height = 36 + #features * ROW_H + 84
 
     local f = CreateFrame("Frame", "UlRemedyOptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     f:SetSize(WIDTH, height)
@@ -86,12 +86,31 @@ local function CreateWindow()
         if previous then
             b:SetPoint("LEFT", previous, "RIGHT", 8, 0)
         else
-            b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", LEFT, 30)
+            b:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", LEFT, 56)
         end
         b:SetText(action.text)
         b:SetScript("OnClick", action.fn)
         previous = b
     end
+
+    -- Second row: the loot roll window's placement, cycled by one button,
+    -- and a test roll to see where it lands.
+    local sideLabel = f:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    sideLabel:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", LEFT, 36)
+    sideLabel:SetText("Loot roll window:")
+    f.sideButton = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    f.sideButton:SetSize(180, 22)
+    f.sideButton:SetPoint("LEFT", sideLabel, "RIGHT", 8, 0)
+    f.sideButton:SetScript("OnClick", function()
+        if UlRemedy.CycleLootRollSide then UlRemedy.CycleLootRollSide() end
+    end)
+    local test = CreateFrame("Button", nil, f, "UIPanelButtonTemplate")
+    test:SetSize(100, 22)
+    test:SetPoint("LEFT", f.sideButton, "RIGHT", 8, 0)
+    test:SetText("Test roll")
+    test:SetScript("OnClick", function()
+        if UlRemedy.LootRollTest then UlRemedy.LootRollTest() end
+    end)
 
     local hint = f:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
     hint:SetPoint("BOTTOM", f, "BOTTOM", 0, 11)
@@ -108,6 +127,9 @@ function UlRemedy.RefreshOptions()
     if not window or not window:IsShown() then return end
     for key, box in pairs(rows) do
         box:SetChecked(UlRemedy.enabled[key] and true or false)
+    end
+    if window.sideButton and UlRemedy.LootRollSideLabel then
+        window.sideButton:SetText(UlRemedy.LootRollSideLabel())
     end
 end
 

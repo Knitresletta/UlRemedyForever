@@ -14,6 +14,7 @@ local DEFAULTS = {
     reagents    = true,
     flightpaths = true,
     transports  = true,
+    rolls       = true,
 }
 
 local function InitDB()
@@ -67,6 +68,7 @@ local FEATURES = {
     { key = "reagents",    label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "flightpaths", label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
     { key = "transports",  label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
+    { key = "rolls",       label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each group loot roll, next to the party frames." },
 }
 UlRemedy.FEATURES = FEATURES
 
@@ -83,6 +85,8 @@ local function PrintHelp()
     print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur rs: print what the reagent tooltip has learned from profession windows")
     print("  /ur rsreset: forget what the reagent tooltip learned in play")
+    print("  /ur rollside: cycle where the loot roll window sits (party frames, chat, free)")
+    print("  /ur rolltest: show a test loot roll so the window can be placed")
     print("  /ur winreset: forget saved window positions")
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
@@ -96,6 +100,7 @@ local function NotifyModules()
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
     if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
+    if UlRemedy.RefreshLootRolls then UlRemedy.RefreshLootRolls() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -154,6 +159,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "rsreset" then
         if UlRemedy.ResetReagentData then UlRemedy.ResetReagentData() end
+        return
+    end
+    if cmd == "rollside" then
+        if UlRemedy.CycleLootRollSide then UlRemedy.CycleLootRollSide() end
+        return
+    end
+    if cmd == "rolltest" then
+        if UlRemedy.LootRollTest then UlRemedy.LootRollTest() end
         return
     end
     if cmd == "win" then

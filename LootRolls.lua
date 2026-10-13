@@ -55,6 +55,8 @@ local window
 local rolls = {}         -- list of active roll records, oldest first
 local blocks = {}        -- pooled block frames
 local patterns = {}      -- { pattern, kind, order } built from global strings
+local done = {}          -- "encounter:lootList" -> GetTime() when its finished block was removed
+local DONE_MEMORY = 1800 -- seconds a finished drop is remembered, so late updates do not revive it
 local lastError
 
 local function Enabled()
@@ -492,10 +494,17 @@ local function Prune()
     local now = GetTime()
     local changed = false
     for i = #rolls, 1, -1 do
-        if rolls[i].expires <= now then
+        local roll = rolls[i]
+        if roll.expires <= now then
+            if roll.encounterID then
+                done[roll.encounterID .. ":" .. roll.lootListID] = now
+            end
             table.remove(rolls, i)
             changed = true
         end
+    end
+    for key, at in pairs(done) do
+        if now - at > DONE_MEMORY then done[key] = nil end
     end
     if changed then Refresh() end
     if #rolls == 0 and ticker then
@@ -529,6 +538,8 @@ local function OnStartRoll(rollID, rollTime)
     local roll = FindRoll(itemID)
     if roll and not roll.finished then
         roll.expires = math.max(roll.expires, GetTime() + ((rollTime or 60000) / 1000) + LINGER)
+    elseif roll and roll.rollID == rollID then
+        return  -- the same roll reported again after it finished
     else
         roll = NewRoll(link, texture)
         roll.expires = GetTime() + ((rollTime or 60000) / 1000) + LINGER
@@ -550,6 +561,10 @@ end
 
 local function ApplyDrop(encounterID, lootListID, drop)
     if not drop or not drop.itemHyperlink then return end
+    -- The history keeps updating a drop after the winner is known (when the
+    -- item is handed out, at the encounter summary). Once its block has
+    -- been shown and removed, such updates must not bring it back.
+    if done[encounterID .. ":" .. lootListID] and (drop.winner or drop.allPassed) then return end
     local roll = FindRollByHistory(encounterID, lootListID)
     if not roll then
         local itemID = ItemIDFromLink(drop.itemHyperlink)

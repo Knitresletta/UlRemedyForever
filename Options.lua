@@ -98,6 +98,9 @@ local function CreateWindow()
     hint:SetText("Chat works too: /ur <feature> toggles, /ur help lists every command.")
 
     f:SetScript("OnShow", function() if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end end)
+    -- A new frame is visible from the start; hide it so the first toggle
+    -- shows it instead of hiding it.
+    f:Hide()
     return f
 end
 

@@ -559,6 +559,7 @@ local function CreateWindow()
     f.forget:SetScript("OnClick", ForgetSelected)
 
     f:SetScript("OnShow", RefreshWindow)
+    f:Hide()  -- a new frame is visible from the start; the toggle shows it
     return f
 end
 

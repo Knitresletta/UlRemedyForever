@@ -167,7 +167,9 @@ end
 -- per frame, and written to the database when the last chunk is done.
 -- The client also fires the list-updated event again after the first
 -- time; only the one we asked for is read.
-local SCAN_CHUNK = 1500
+local SCAN_CHUNK = 1500         -- auctions per frame when the button was pressed
+local AUTO_CHUNK = 250          -- auctions per frame for the quiet scan on opening
+local scanChunk = SCAN_CHUNK
 local scanJob                   -- { getInfo, source, index, n, batch }
 
 local function FinishScan(job)
@@ -185,7 +187,7 @@ local function StepScan()
         frame:SetScript("OnUpdate", nil)
         return
     end
-    local last = math.min(job.index + SCAN_CHUNK - 1, job.n)
+    local last = math.min(job.index + scanChunk - 1, job.n)
     local ok, err = pcall(function()
         for i = job.index, last do
             local _, _, count, _, _, _, _, _, _, buyout, _, _, _, _, _, _, itemID = job.getInfo(i)
@@ -226,17 +228,24 @@ end
 -- The Scan button on the auction house window
 ------------------------------------------------------------------------
 
+-- The cooldown counts from the last scan this session and from the last
+-- one saved for this realm, so a /reload does not start another.
 local function CanScan()
     if lastScanAt and GetTime() - lastScanAt < SCAN_COOLDOWN then return false end
+    if market and market.scanned and time() - market.scanned.at < SCAN_COOLDOWN then return false end
     if C_AuctionHouse and C_AuctionHouse.ReplicateItems then return true end
     if QueryAuctionItems and (not CanSendAuctionQuery or CanSendAuctionQuery()) then return true end
     return false
 end
 
-local function RequestScan()
+-- auto: started by opening the auction house rather than the button; the
+-- list is then read in smaller chunks so it is not felt even on a weak
+-- machine, at the cost of taking a few seconds longer.
+local function RequestScan(auto)
     if not CanScan() then return end
     lastScanAt = GetTime()
     scanPending = true
+    scanChunk = auto and AUTO_CHUNK or SCAN_CHUNK
     if scanButton then
         scanButton:SetText("Scanning...")
         scanButton:Disable()
@@ -291,11 +300,11 @@ local function EnsureScanButton()
     -- it a whole stratum. Tooltips still sit above it.
     scanButton:SetFrameStrata("DIALOG")
     scanButton:SetFrameLevel(parent:GetFrameLevel() + 10)
-    scanButton:SetScript("OnClick", RequestScan)
+    scanButton:SetScript("OnClick", function() RequestScan(false) end)
     scanButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
         GameTooltip:SetText("Scan auction prices")
-        GameTooltip:AddLine("Reads the whole auction list and remembers the lowest buyout per item, for the tooltips. The client allows this about every 15 minutes. Browsing and searching are remembered on their own.", 0.8, 0.8, 0.8, true)
+        GameTooltip:AddLine("Reads the whole auction list and remembers the lowest buyout per item, for the tooltips. This also happens quietly each time the auction house opens, when the last scan is older than 15 minutes, which is how often the client allows it. Browsing and searching are remembered on their own.", 0.8, 0.8, 0.8, true)
         GameTooltip:Show()
     end)
     scanButton:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -497,6 +506,14 @@ frame:SetScript("OnEvent", function(self, event, arg1)
     local ok, err = pcall(function()
         if event == "AUCTION_HOUSE_SHOW" then
             EnsureScanButton()
+            -- The quiet scan: a moment after opening, so the window is up
+            -- first; skipped when the last scan is under 15 minutes old.
+            C_Timer.After(2, function()
+                if Enabled() and not scanJob then
+                    local ok, err = pcall(RequestScan, true)
+                    if not ok then Report(err) end
+                end
+            end)
         elseif event == "AUCTION_HOUSE_BROWSE_RESULTS_UPDATED" or event == "AUCTION_HOUSE_BROWSE_RESULTS_ADDED" then
             ReadBrowseResults()
         elseif event == "COMMODITY_SEARCH_RESULTS_UPDATED" or event == "COMMODITY_SEARCH_RESULTS_ADDED" then

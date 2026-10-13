@@ -50,27 +50,31 @@ function UlRemedy.ItemVendorPrice(itemLink)
     return (select(11, getItemInfo(itemLink)))
 end
 
+-- Every toggleable feature. Options.lua draws one checkbox per entry;
+-- /ur <key> toggles it from chat. desc is the one-line explanation shown
+-- next to the checkbox and in /ur help.
 local FEATURES = {
-    { key = "repair",      label = "Auto Repair" },
-    { key = "junk",        label = "Junk Seller" },
-    { key = "junkdelete",  label = "Junk Deleter (deletes the cheapest junk item when bags are full)" },
-    { key = "vendor",      label = "Vendor Window (bigger merchant window with a scrollable grid, search, filters and sorting)" },
-    { key = "vendorbags",  label = "Vendor Bags (bag panel docked to the vendor; click an item to sell it)" },
-    { key = "groupinvite", label = "Group Invite" },
-    { key = "trainer",     label = "Enhanced Trainer" },
-    { key = "cursor",      label = "Cursor Ring" },
-    { key = "windows",     label = "Movable Windows (drag Blizzard windows and bags; positions are remembered)" },
-    { key = "inventory",   label = "Inventory Tracker" },
-    { key = "reagents",    label = "Reagent Tooltip (which professions use an item)" },
-    { key = "flightpaths", label = "Flight Paths on Map" },
-    { key = "transports",  label = "Boats, Zeppelins, Tram and Portals on Map" },
+    { key = "repair",      label = "Auto Repair",       desc = "Repairs your gear at vendors, guild funds first when they cover it." },
+    { key = "junk",        label = "Junk Seller",       desc = "Sells all grey items when a vendor opens." },
+    { key = "junkdelete",  label = "Junk Deleter",      desc = "Deletes the cheapest grey item when your bags are full. Off by default." },
+    { key = "vendor",      label = "Vendor Window",     desc = "Bigger merchant window: scrollable grid, search, filters, sorting, resizable." },
+    { key = "vendorbags",  label = "Vendor Bags",       desc = "Bag panel docked to the vendor; one click sells an item." },
+    { key = "groupinvite", label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
+    { key = "trainer",     label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
+    { key = "cursor",      label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
+    { key = "windows",     label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere; positions are remembered. Turning off needs /reload." },
+    { key = "inventory",   label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters; tooltip counts and a browser." },
+    { key = "reagents",    label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
+    { key = "flightpaths", label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
+    { key = "transports",  label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
 }
+UlRemedy.FEATURES = FEATURES
 
 local function PrintHelp()
-    print("|cffffcc00" .. UlRemedy.name .. "|r commands:")
+    print("|cffffcc00" .. UlRemedy.name .. "|r: /ur opens the options window. Chat commands:")
     for _, f in ipairs(FEATURES) do
         local state = UlRemedy.enabled[f.key] and "|cff00ff00on|r" or "|cffff4444off|r"
-        print("  /ur " .. f.key .. ": " .. f.label .. " (" .. state .. ")")
+        print("  /ur " .. f.key .. ": " .. f.label .. " (" .. state .. "): " .. f.desc)
     end
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
     print("  /ur fp: print flight path map diagnostics for the current map")
@@ -83,10 +87,8 @@ local function PrintHelp()
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
 
-local function Toggle(key, label)
-    UlRemedy.enabled[key] = not UlRemedy.enabled[key]
-    local state = UlRemedy.enabled[key] and "|cff00ff00enabled|r" or "|cffff4444disabled|r"
-    print(UlRemedy.name .. ": " .. label .. " " .. state .. ".")
+-- Modules that need a nudge when a feature changes state.
+local function NotifyModules()
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
     if UlRemedy.RefreshMovableWindows then UlRemedy.RefreshMovableWindows() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
@@ -94,12 +96,38 @@ local function Toggle(key, label)
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
     if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
+    if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
+end
+
+-- Shared by the chat command and the options window.
+function UlRemedy.SetFeature(key, enabled)
+    local feature
+    for _, f in ipairs(FEATURES) do
+        if f.key == key then feature = f end
+    end
+    if not feature then return end
+    UlRemedy.enabled[key] = enabled and true or false
+    local state = UlRemedy.enabled[key] and "|cff00ff00enabled|r" or "|cffff4444disabled|r"
+    print(UlRemedy.name .. ": " .. feature.label .. " " .. state .. ".")
+    NotifyModules()
+end
+
+local function Toggle(key)
+    UlRemedy.SetFeature(key, not UlRemedy.enabled[key])
 end
 
 SLASH_ULREMEDY1 = "/ur"
 SLASH_ULREMEDY2 = "/ulremedy"
 SlashCmdList["ULREMEDY"] = function(msg)
     local cmd = strtrim(msg):lower()
+    if cmd == "" then
+        if UlRemedy.ToggleOptions then UlRemedy.ToggleOptions() else PrintHelp() end
+        return
+    end
+    if cmd == "help" then
+        PrintHelp()
+        return
+    end
     if cmd == "inv" or cmd == "bags" then
         if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
         return
@@ -139,7 +167,7 @@ SlashCmdList["ULREMEDY"] = function(msg)
     local matched = false
     for _, f in ipairs(FEATURES) do
         if cmd == f.key then
-            Toggle(f.key, f.label)
+            Toggle(f.key)
             matched = true
             break
         end
@@ -156,7 +184,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         InitDB()
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
-        print(UlRemedy.name .. " " .. UlRemedy.Version() .. " loaded. Type |cffffcc00/ur|r to see commands.")
+        print(UlRemedy.name .. " " .. UlRemedy.Version() .. " loaded. Type |cffffcc00/ur|r for options.")
         self:UnregisterEvent("PLAYER_LOGIN")
     end
 end)

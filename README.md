@@ -34,9 +34,9 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 **Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
 
-## Commands
+## Options and commands
 
-Type `/ur` to list every feature and its current state.
+Type `/ur` to open the options window: one checkbox per feature, in the game's own style, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
 
 | Command | Description |
 |---------|-------------|

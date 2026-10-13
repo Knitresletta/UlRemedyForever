@@ -69,6 +69,7 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur windows` | Toggle movable windows (drag Blizzard windows and bags; positions are remembered) |
 | `/ur winreset` | Forget all saved window positions |
 | `/ur win` | Print movable windows diagnostics, including the name of the window under the mouse |
+| `/ur errors` | Save this session's Lua errors and warnings (the list behind the count in the AddOns menu) to the saved variables and print the last five. Also done automatically on reload and logout. |
 | `/ur inventory` | Toggle the inventory tracker (tooltip lines and scanning) |
 | `/ur inv` | Open or close the inventory browser window |
 | `/ur reagents` | Toggle the reagent tooltip line |

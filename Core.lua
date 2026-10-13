@@ -25,7 +25,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end
@@ -51,6 +51,69 @@ function UlRemedy.ItemVendorPrice(itemLink)
     local getItemInfo = (C_Item and C_Item.GetItemInfo) or GetItemInfo
     if not getItemInfo then return nil end
     return (select(11, getItemInfo(itemLink)))
+end
+
+------------------------------------------------------------------------
+-- Lua error log
+------------------------------------------------------------------------
+-- The client keeps every Lua error and warning of the session in
+-- ScriptErrorsFrame.errorData (message, count, time, stack, locals; see
+-- Blizzard_ScriptErrorsFrame.lua) and forgets them on reload. Warnings
+-- such as "exceeded execution limit" never pass through seterrorhandler,
+-- so reading that table is the only way to see everything. It is copied
+-- into the saved variables at logout and reload, and on /ur errors, so the
+-- log can be read from the saved variables file afterwards. Strings that
+-- are secret values are replaced with a marker rather than touched.
+local MAX_LOGGED_ERRORS = 40
+
+local function PlainString(v)
+    if v == nil then return nil end
+    if issecretvalue and issecretvalue(v) then return "<secret>" end
+    if type(v) ~= "string" then return tostring(v) end
+    return v
+end
+
+local function Clip(text, n)
+    text = PlainString(text)
+    if not text then return nil end
+    text = text:gsub("Interface[/\\]AddOns[/\\]", "")
+    if #text > n then text = text:sub(1, n) .. "..." end
+    return text
+end
+
+function UlRemedy.DumpErrors(announce)
+    local frameData = ScriptErrorsFrame and ScriptErrorsFrame.errorData
+    local list = {}
+    if type(frameData) == "table" then
+        local n = #frameData
+        for i = math.max(1, n - MAX_LOGGED_ERRORS + 1), n do
+            local e = frameData[i]
+            local ok, rec = pcall(function()
+                return {
+                    kind = e.messageType == 1 and "warning" or "error",
+                    count = tonumber(PlainString(e.count)) or 0,
+                    time = PlainString(e.time),
+                    message = Clip(e.message, 400),
+                    stack = Clip(e.stack, 1200),
+                }
+            end)
+            list[#list + 1] = ok and rec or { kind = "unreadable", message = tostring(rec) }
+        end
+    end
+    UlRemedyForeverDB.errors = {
+        at = date("%Y-%m-%d %H:%M:%S"),
+        version = UlRemedy.Version(),
+        total = type(frameData) == "table" and #frameData or 0,
+        list = list,
+    }
+    if announce then
+        print(UlRemedy.name .. ": saved " .. #list .. " of " .. UlRemedyForeverDB.errors.total
+            .. " Lua errors and warnings from this session to the saved variables (written on reload or logout).")
+        for i = math.max(1, #list - 4), #list do
+            local e = list[i]
+            print("  " .. (e.count or 0) .. "x " .. (e.kind or "?") .. ": " .. (e.message or "?"))
+        end
+    end
 end
 
 -- Every toggleable feature. Options.lua draws one checkbox per entry;
@@ -96,6 +159,7 @@ local function PrintHelp()
     print("  /ur rollside: cycle where the loot roll window sits (party frames, chat, free)")
     print("  /ur rolltest: show a test loot roll so the window can be placed")
     print("  /ur winreset: forget saved window positions")
+    print("  /ur errors: save this session's Lua errors and warnings to the saved variables, print the last five")
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
 end
 
@@ -191,6 +255,11 @@ SlashCmdList["ULREMEDY"] = function(msg)
         if UlRemedy.LootRollTest then UlRemedy.LootRollTest() end
         return
     end
+    if cmd == "errors" then
+        local ok, err = pcall(UlRemedy.DumpErrors, true)
+        if not ok then print(UlRemedy.name .. ": could not read the error list: " .. tostring(err)) end
+        return
+    end
     if cmd == "win" then
         if UlRemedy.MovableWindowsDebug then UlRemedy.MovableWindowsDebug() end
         return
@@ -213,11 +282,15 @@ end
 local frame = CreateFrame("Frame", "UlRemedyCoreFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_LOGOUT")
 
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" and arg1 == UlRemedy.name then
         InitDB()
         self:UnregisterEvent("ADDON_LOADED")
+    elseif event == "PLAYER_LOGOUT" then
+        -- Also fires on /reload: the error list is about to be lost.
+        pcall(UlRemedy.DumpErrors, false)
     elseif event == "PLAYER_LOGIN" then
         print(UlRemedy.name .. " " .. UlRemedy.Version() .. " loaded. Type |cffffcc00/ur|r for options.")
         self:UnregisterEvent("PLAYER_LOGIN")

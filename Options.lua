@@ -7,18 +7,18 @@
 -- chat command, so modules get notified the same way either route is used.
 -- The window is closed by Escape (UISpecialFrames) and can be dragged.
 
-local ROW_H = 34
+local ROW_H = 30
+local HEADER_H = 24
 local LEFT = 16
 local WIDTH = 520
 
 local window
 local rows = {}
 
-local function CreateRow(parent, index, feature)
-    local y = -36 - (index - 1) * ROW_H
+local function CreateRow(parent, y, feature)
     local box = CreateFrame("CheckButton", "UlRemedyOption" .. feature.key, parent, "UICheckButtonTemplate")
     box:SetSize(26, 26)
-    box:SetPoint("TOPLEFT", parent, "TOPLEFT", LEFT, y - 2)
+    box:SetPoint("TOPLEFT", parent, "TOPLEFT", LEFT + 8, y)
     if box.Text then box.Text:SetText("") end
     box.key = feature.key
     box:SetScript("OnClick", function(self)
@@ -26,7 +26,7 @@ local function CreateRow(parent, index, feature)
     end)
 
     local name = parent:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    name:SetPoint("TOPLEFT", box, "TOPRIGHT", 4, -3)
+    name:SetPoint("TOPLEFT", box, "TOPRIGHT", 4, -2)
     name:SetText(feature.label)
     name:SetJustifyH("LEFT")
 
@@ -34,6 +34,7 @@ local function CreateRow(parent, index, feature)
     desc:SetPoint("TOPLEFT", name, "BOTTOMLEFT", 0, -1)
     desc:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
     desc:SetJustifyH("LEFT")
+    desc:SetWordWrap(false)
     desc:SetTextColor(0.7, 0.7, 0.7)
     desc:SetText(feature.desc)
 
@@ -41,15 +42,55 @@ local function CreateRow(parent, index, feature)
     local hit = CreateFrame("Button", nil, parent)
     hit:SetPoint("LEFT", box, "RIGHT", 0, 0)
     hit:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
-    hit:SetHeight(ROW_H - 4)
+    hit:SetHeight(ROW_H - 2)
     hit:SetScript("OnClick", function() box:Click() end)
 
     return box
 end
 
+local function CreateHeader(parent, y, text)
+    local label = parent:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    label:SetPoint("TOPLEFT", parent, "TOPLEFT", LEFT, y)
+    label:SetText(text)
+    local line = parent:CreateTexture(nil, "ARTWORK")
+    line:SetColorTexture(1, 0.82, 0, 0.25)
+    line:SetHeight(1)
+    line:SetPoint("TOPLEFT", label, "BOTTOMLEFT", 0, -2)
+    line:SetPoint("RIGHT", parent, "RIGHT", -LEFT, 0)
+end
+
+-- Features grouped in the order Core lists the groups; anything with an
+-- unknown group lands under "Other" at the end.
+local function GroupedFeatures()
+    local groups = {}
+    local byName = {}
+    for _, name in ipairs(UlRemedy.FEATURE_GROUPS or {}) do
+        local g = { name = name, features = {} }
+        groups[#groups + 1] = g
+        byName[name] = g
+    end
+    for _, feature in ipairs(UlRemedy.FEATURES or {}) do
+        local g = byName[feature.group or "Other"]
+        if not g then
+            g = { name = feature.group or "Other", features = {} }
+            groups[#groups + 1] = g
+            byName[g.name] = g
+        end
+        g.features[#g.features + 1] = feature
+    end
+    local kept = {}
+    for _, g in ipairs(groups) do
+        if #g.features > 0 then kept[#kept + 1] = g end
+    end
+    return kept
+end
+
 local function CreateWindow()
-    local features = UlRemedy.FEATURES or {}
-    local height = 36 + #features * ROW_H + 84
+    local groups = GroupedFeatures()
+    local height = 36 + 84
+    for _, g in ipairs(groups) do
+        height = height + HEADER_H + 6 + #g.features * ROW_H + 6
+    end
 
     local f = CreateFrame("Frame", "UlRemedyOptionsFrame", UIParent, "BasicFrameTemplateWithInset")
     f:SetSize(WIDTH, height)
@@ -67,8 +108,15 @@ local function CreateWindow()
     local title = f.TitleText or (f.TitleContainer and f.TitleContainer.TitleText)
     if title then title:SetText(UlRemedy.name .. " " .. UlRemedy.Version()) end
 
-    for i, feature in ipairs(features) do
-        rows[feature.key] = CreateRow(f, i, feature)
+    local y = -32
+    for _, g in ipairs(groups) do
+        CreateHeader(f, y, g.name)
+        y = y - HEADER_H - 6
+        for _, feature in ipairs(g.features) do
+            rows[feature.key] = CreateRow(f, y, feature)
+            y = y - ROW_H
+        end
+        y = y - 6
     end
 
     -- Buttons for the actions that are not on/off switches.

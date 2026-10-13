@@ -55,21 +55,22 @@ end
 -- /ur <key> toggles it from chat. desc is the one-line explanation shown
 -- next to the checkbox and in /ur help.
 local FEATURES = {
-    { key = "repair",      label = "Auto Repair",       desc = "Repairs your gear at vendors, guild funds first when they cover it." },
-    { key = "junk",        label = "Junk Seller",       desc = "Sells all grey items when a vendor opens." },
-    { key = "junkdelete",  label = "Junk Deleter",      desc = "Deletes the cheapest grey item when your bags are full. Off by default." },
-    { key = "vendor",      label = "Vendor Window",     desc = "Bigger merchant window: scrollable grid, search, filters, sorting, resizable." },
-    { key = "vendorbags",  label = "Vendor Bags",       desc = "Bag panel docked to the vendor; one click sells an item." },
-    { key = "groupinvite", label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
-    { key = "trainer",     label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
-    { key = "cursor",      label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
-    { key = "windows",     label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere; positions are remembered. Turning off needs /reload." },
-    { key = "inventory",   label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters; tooltip counts and a browser." },
-    { key = "reagents",    label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
-    { key = "flightpaths", label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
-    { key = "transports",  label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
-    { key = "rolls",       label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each group loot roll, next to the party frames." },
+    { key = "repair",      group = "Vendor",    label = "Auto Repair",       desc = "Repairs your gear at vendors, guild funds first when they cover it." },
+    { key = "junk",        group = "Vendor",    label = "Junk Seller",       desc = "Sells all grey items when a vendor opens." },
+    { key = "junkdelete",  group = "Vendor",    label = "Junk Deleter",      desc = "Deletes the cheapest grey item when your bags are full. Off by default." },
+    { key = "vendor",      group = "Vendor",    label = "Vendor Window",     desc = "Bigger merchant window: scrollable grid, search, filters, sorting." },
+    { key = "vendorbags",  group = "Vendor",    label = "Vendor Bags",       desc = "Bag panel docked to the vendor; one click sells an item." },
+    { key = "groupinvite", group = "Group",     label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
+    { key = "rolls",       group = "Group",     label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each loot roll, by the party frames." },
+    { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
+    { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
+    { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
+    { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
+    { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
+    { key = "flightpaths", group = "Map",       label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
+    { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
 }
+UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Interface", "Items", "Map" }
 UlRemedy.FEATURES = FEATURES
 
 local function PrintHelp()

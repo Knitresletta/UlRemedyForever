@@ -38,7 +38,7 @@ A separate addon from [UlRemedy](https://github.com/Knitresletta/UlRemedy) (reta
 
 ## Options and commands
 
-Type `/ur` to open the options window: one checkbox per feature, in the game's own style, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
+Type `/ur` to open the options window: one checkbox per feature, grouped under Vendor, Group, Interface, Items and Map, in the game's own style, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
 
 | Command | Description |
 |---------|-------------|

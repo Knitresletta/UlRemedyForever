@@ -166,8 +166,16 @@ local function ReadPosition(frame)
     }
 end
 
+-- A protected frame (the spellbook is one on this client) cannot be moved
+-- or raised from addon code in combat: the call is refused and counted as
+-- a blocked action behind the alert icon in the AddOns list. Wait it out.
+local function CanTouch(frame)
+    return not (InCombatLockdown() and frame.IsProtected and frame:IsProtected())
+end
+
 local function ApplyPosition(frame, pos)
     if not pos then return end
+    if not CanTouch(frame) then return end
     frame:ClearAllPoints()
     frame:SetPoint("CENTER", UIParent, "CENTER", pos.x, pos.y)
 end
@@ -179,7 +187,7 @@ end
 local function PlaceWindow(frame, pos)
     if pos then
         ApplyPosition(frame, pos)
-    elseif frame:GetNumPoints() == 0 then
+    elseif frame:GetNumPoints() == 0 and CanTouch(frame) then
         frame:SetPoint("TOPLEFT", UIParent, "TOPLEFT", 16, -116)
     end
 end
@@ -205,7 +213,7 @@ local function DragFrom(region, frame, onStop)
     end
     region:RegisterForDrag("LeftButton")
     AddScript(region, "OnDragStart", function()
-        if not Enabled() then return end
+        if not Enabled() or not CanTouch(frame) then return end
         frame:StartMoving()
     end)
     AddScript(region, "OnDragStop", function()
@@ -350,7 +358,7 @@ local function HookPanelFunctions()
                 ReapplyManagedMovers()
                 -- The manager shows it at its default level, under the
                 -- detached windows that have been raised by clicks.
-                frame:Raise()
+                if CanTouch(frame) then frame:Raise() end
             end
             if not handled[name] and not EXCLUDE[name] then
                 -- A panel we did not know about (registered by attributes

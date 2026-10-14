@@ -25,13 +25,16 @@
 -- silently refused. The order of attempts is therefore: cursor deletion
 -- (works from /ur junkdelete), then C_Item.DeleteItem by GUID, and if the
 -- client refuses both, a popup with a single Delete button, whose click is
--- a hardware event the client accepts.
+-- a hardware event the client accepts. A refused route is not tried again
+-- in the same session: every refusal is a blocked action behind the alert
+-- icon in the AddOns list.
 
 local lastError
 local blockedUntil = 0      -- no new deletion before this time
 local hintShown = false     -- "bags full but nothing to delete", once per episode
 local declined = false      -- the popup was cancelled for this full-bag episode
 local guidDeleteWorks       -- nil = untested, true/false after the first try
+local cursorDeleteWorks     -- nil = untested, false once an event-driven attempt was refused
 local lastEvent, lastEventAt, lastResult
 
 local function Report(err)
@@ -165,18 +168,25 @@ local function Prompt(entry)
     StaticPopup_Show("ULREMEDY_DELETE_JUNK", Describe(entry), nil, entry)
 end
 
--- Tries the silent routes first and falls back to the popup.
+-- Tries the silent routes first and falls back to the popup. Each route
+-- is tried once per session: a refusal counts as a blocked action in the
+-- AddOns list (the alert icon), and the client refuses the same route the
+-- same way every time, so from the second full bag on the popup is used
+-- straight away.
 local function Delete(entry)
-    local ok, err = DeleteViaCursor(entry)
-    if ok then
-        Announce(entry)
-        return
-    end
-    if err ~= "refused" then
-        lastResult = "failed: " .. tostring(err)
-        blockedUntil = 0
-        Report(err)
-        return
+    if cursorDeleteWorks ~= false then
+        local ok, err = DeleteViaCursor(entry)
+        if ok then
+            Announce(entry)
+            return
+        end
+        if err ~= "refused" then
+            lastResult = "failed: " .. tostring(err)
+            blockedUntil = 0
+            Report(err)
+            return
+        end
+        cursorDeleteWorks = false
     end
 
     if guidDeleteWorks ~= false and C_Item and C_Item.DeleteItem then

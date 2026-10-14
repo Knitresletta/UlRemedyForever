@@ -104,11 +104,14 @@ function UlRemedy.DumpErrors(announce)
         at = date("%Y-%m-%d %H:%M:%S"),
         version = UlRemedy.Version(),
         total = type(frameData) == "table" and #frameData or 0,
+        -- Tells a missing frame apart from a clean session.
+        source = ScriptErrorsFrame and (type(frameData) == "table" and "ScriptErrorsFrame.errorData" or "frame without errorData") or "no ScriptErrorsFrame",
         list = list,
     }
     if announce then
         print(UlRemedy.name .. ": saved " .. #list .. " of " .. UlRemedyForeverDB.errors.total
-            .. " Lua errors and warnings from this session to the saved variables (written on reload or logout).")
+            .. " Lua errors and warnings from this session (" .. UlRemedyForeverDB.errors.source
+            .. ") to the saved variables, written on reload or logout.")
         for i = math.max(1, #list - 4), #list do
             local e = list[i]
             print("  " .. (e.count or 0) .. "x " .. (e.kind or "?") .. ": " .. (e.message or "?"))

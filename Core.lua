@@ -81,6 +81,26 @@ local function Clip(text, n)
     return text
 end
 
+-- Blocked actions are a separate thing from Lua errors: the client refuses
+-- a protected call made from tainted code, fires ADDON_ACTION_BLOCKED (or
+-- _FORBIDDEN) with the addon and function name, and the AddOns list shows
+-- an alert icon with the count. Nothing reaches the error frame. Keep a
+-- count per function and the stack of the first time each was seen; the
+-- event fires inside the refused call, so the stack names our call site.
+local blocked = {}        -- functionName -> { count, kind, stack, last }
+
+local function NoteBlocked(kind, addonName, functionName)
+    if addonName ~= UlRemedy.name then return end
+    local key = tostring(functionName or "?")
+    local rec = blocked[key]
+    if not rec then
+        rec = { count = 0, kind = kind, stack = Clip(debugstack(3, 12, 0), 1200) }
+        blocked[key] = rec
+    end
+    rec.count = rec.count + 1
+    rec.last = date("%H:%M:%S")
+end
+
 function UlRemedy.DumpErrors(announce)
     local frameData = ScriptErrorsFrame and ScriptErrorsFrame.errorData
     local list = {}
@@ -100,10 +120,18 @@ function UlRemedy.DumpErrors(announce)
             list[#list + 1] = ok and rec or { kind = "unreadable", message = tostring(rec) }
         end
     end
+    local blockedList, blockedTotal = {}, 0
+    for fn, rec in pairs(blocked) do
+        blockedList[#blockedList + 1] = { func = fn, count = rec.count, kind = rec.kind, last = rec.last, stack = rec.stack }
+        blockedTotal = blockedTotal + rec.count
+    end
+    table.sort(blockedList, function(a, b) return a.count > b.count end)
     UlRemedyForeverDB.errors = {
         at = date("%Y-%m-%d %H:%M:%S"),
         version = UlRemedy.Version(),
         total = type(frameData) == "table" and #frameData or 0,
+        blocked = blockedList,
+        blockedTotal = blockedTotal,
         -- Tells a missing frame apart from a clean session.
         source = ScriptErrorsFrame and (type(frameData) == "table" and "ScriptErrorsFrame.errorData" or "frame without errorData") or "no ScriptErrorsFrame",
         list = list,
@@ -115,6 +143,11 @@ function UlRemedy.DumpErrors(announce)
         for i = math.max(1, #list - 4), #list do
             local e = list[i]
             print("  " .. (e.count or 0) .. "x " .. (e.kind or "?") .. ": " .. (e.message or "?"))
+        end
+        print("  blocked actions this session: " .. blockedTotal .. (blockedTotal > 0 and ":" or "."))
+        for i = 1, math.min(5, #blockedList) do
+            local b = blockedList[i]
+            print("    " .. b.count .. "x " .. b.func .. " (" .. b.kind .. ", last " .. (b.last or "?") .. ")")
         end
     end
 end
@@ -286,8 +319,14 @@ local frame = CreateFrame("Frame", "UlRemedyCoreFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_LOGOUT")
+frame:RegisterEvent("ADDON_ACTION_BLOCKED")
+frame:RegisterEvent("ADDON_ACTION_FORBIDDEN")
 
-frame:SetScript("OnEvent", function(self, event, arg1)
+frame:SetScript("OnEvent", function(self, event, arg1, arg2)
+    if event == "ADDON_ACTION_BLOCKED" or event == "ADDON_ACTION_FORBIDDEN" then
+        pcall(NoteBlocked, event == "ADDON_ACTION_BLOCKED" and "blocked" or "forbidden", arg1, arg2)
+        return
+    end
     if event == "ADDON_LOADED" and arg1 == UlRemedy.name then
         InitDB()
         self:UnregisterEvent("ADDON_LOADED")

@@ -16,6 +16,7 @@ local DEFAULTS = {
     auctionshare = true,
     flightpaths = true,
     transports  = true,
+    zonelevels  = true,
     rolls       = true,
 }
 
@@ -172,6 +173,7 @@ local FEATURES = {
     { key = "auctionshare", group = "Items",    label = "Price Sharing",     desc = "Swaps auction prices with other UlRemedyForever users on your realm over a hidden chat channel." },
     { key = "flightpaths", group = "Map",       label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
     { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
+    { key = "zonelevels",  group = "Map",       label = "Zone Levels",       desc = "Level range and territory under the zone name on continent maps." },
 }
 UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Interface", "Items", "Map" }
 UlRemedy.FEATURES = FEATURES
@@ -185,6 +187,7 @@ local function PrintHelp()
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
+    print("  /ur zones: print the zone level ranges, colored for your level, and the zone maps the data does not know")
     print("  /ur jd: print junk deleter diagnostics")
     print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur rs: print what the reagent tooltip has learned from profession windows")
@@ -206,6 +209,7 @@ local function NotifyModules()
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
+    if UlRemedy.RefreshZoneLevels then UlRemedy.RefreshZoneLevels() end
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
     if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
     if UlRemedy.RefreshLootRolls then UlRemedy.RefreshLootRolls() end
@@ -253,6 +257,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "fpreset" then
         if UlRemedy.ResetFlightPaths then UlRemedy.ResetFlightPaths() end
+        return
+    end
+    if cmd == "zones" then
+        if UlRemedy.ZoneLevelsDebug then UlRemedy.ZoneLevelsDebug() end
         return
     end
     if cmd == "jd" then

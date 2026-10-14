@@ -49,6 +49,8 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
 
+**Zone Levels**: The level range a zone is meant for and whose territory it is (Alliance, Horde, Contested), under the zone's name when the mouse rests on it on a continent map, colored for your level: yellow fits, green is easy, orange is soon, red is too high, grey is outgrown. The retail map has this line built in, but the Forever client has no level data for its zones, so the line stays empty; the addon fills it, and steps aside for any zone the client does give a range. The ranges are Forever's own, read from the beta client by ForeverChanges (`tools/fetch_zones.py` regenerates the table), and they differ from the classic ones in most zones. Zones the client has no range for yet (Mount Hyjal, Shen'dralas) show nothing. `/ur zones` prints every zone with its range and the zone maps the data does not know.
+
 **Loot Rolls**: While a group loot roll is running, a small window lists every group member with what they chose (Need, Greed, Pass, Disenchant) and what they rolled, under the item's icon and name, so several rolls at once stay apart. The winner is shown for a few seconds after the roll ends. It sits to the right of the party frames by default; `/ur rollside` (or the button in `/ur`) cycles between right of the party frames, left of them, above the chat, and free, and dragging the window anywhere makes it free. `/ur rolltest` shows a fake roll with your current group so you can place it. The choices come from the game's loot history (the same data as Blizzard's loot history window), with the loot messages in chat as a fallback on clients that still print them.
 
 ## Options and commands
@@ -82,6 +84,8 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur ahshare` | Print price sharing diagnostics (channel, sent, received, peers) |
 | `/ur flightpaths` | Toggle flight path pins on the world map |
 | `/ur transports` | Toggle boat, zeppelin, tram and portal pins on the world map |
+| `/ur zonelevels` | Toggle zone level ranges under the zone name on continent maps |
+| `/ur zones` | Print the zone level ranges and the zone maps the data does not know |
 | `/ur rolls` | Toggle the loot roll window |
 | `/ur rollside` | Cycle where the loot roll window sits (party frames, chat, free) |
 | `/ur rolltest` | Show a test loot roll with your current group |

@@ -33,6 +33,8 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Enhanced Trainer**: Adds a **Train All** button to trainers that learns everything you can afford in one click.
 
+**Trainer Preview**: What your class trainer has for you, without walking there. The list is learned on each visit to your class trainer (every ability and rank with its level and price, remembered per class across your characters), so visit the trainer once and it is filled in. A **Trainer** tab in the spellbook, to the right of Blizzard's own tabs, shows what is available now with the total price, and what is coming up at which level. Hovering a line shows the spell's tooltip. On level up a chat line names the abilities that just became available and what they cost in total. Ranks you have replaced with a higher rank do not count as missing. `/ur tp` prints diagnostics, `/ur tpreset` forgets the list for the current class.
+
 **Cursor Ring**: A dusty purple ring with a soft silver glow that follows your mouse cursor, visible on light and dark backgrounds alike.
 
 **Movable Windows**: The standard Blizzard windows (character, spellbook, talents, quest log, friends, guild, trainer, merchant, mail, bank, professions, and any other window Blizzard registers as a panel) and every bag can be dragged anywhere, overlap each other, and come back where you left them the next time they open. Click a window to bring it in front. The world map is included. The spellbook and talent window (one window on this client) is the exception: it stays under Blizzard's control, because detaching it breaks its cooldown display, but it can still be dragged and comes back where you left it, and windows it closes on opening are reopened. Escape still closes them. Positions are shared across your characters. `/ur winreset` forgets all saved positions; turning the feature off takes full effect after `/reload`. If your action bars ever vanish in combat, turn it off with `/ur windows` and `/reload`, and please report it.
@@ -69,6 +71,9 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur vendorreset` | Reset the vendor window to its default size |
 | `/ur groupinvite` | Toggle group invite auto-accept |
 | `/ur trainer` | Toggle the trainer Train All button |
+| `/ur trainerpreview` | Toggle the Trainer tab in the spellbook and the level-up note |
+| `/ur tp` | Print trainer preview diagnostics (what is remembered, what is available now) |
+| `/ur tpreset` | Forget the remembered trainer list for the current class |
 | `/ur cursor` | Toggle the cursor ring |
 | `/ur windows` | Toggle movable windows (drag Blizzard windows and bags; positions are remembered) |
 | `/ur winreset` | Forget all saved window positions |

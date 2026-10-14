@@ -8,6 +8,7 @@ local DEFAULTS = {
     vendorbags  = true,
     groupinvite = true,
     trainer     = true,
+    trainerpreview = true,
     cursor      = true,
     windows     = true,
     bagsort     = true,
@@ -166,6 +167,7 @@ local FEATURES = {
     { key = "groupinvite", group = "Group",     label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
     { key = "rolls",       group = "Group",     label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each loot roll, by the party frames." },
     { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
+    { key = "trainerpreview", group = "Interface", label = "Trainer Preview",  desc = "A Trainer tab in the spellbook with what your class trainer has for you, and a note on level up." },
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
@@ -202,6 +204,8 @@ local function PrintHelp()
     print("  /ur winreset: forget saved window positions")
     print("  /ur errors: save this session's Lua errors and warnings to the saved variables, print the last five")
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
+    print("  /ur tp: print trainer preview diagnostics (what is remembered, what is available)")
+    print("  /ur tpreset: forget the remembered trainer list for this class")
 end
 
 -- Modules that need a nudge when a feature changes state.
@@ -209,6 +213,7 @@ local function NotifyModules()
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
     if UlRemedy.RefreshMovableWindows then UlRemedy.RefreshMovableWindows() end
     if UlRemedy.RefreshBagSort then UlRemedy.RefreshBagSort() end
+    if UlRemedy.RefreshTrainerPreview then UlRemedy.RefreshTrainerPreview() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
@@ -305,6 +310,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     if cmd == "errors" then
         local ok, err = pcall(UlRemedy.DumpErrors, true)
         if not ok then print(UlRemedy.name .. ": could not read the error list: " .. tostring(err)) end
+        return
+    end
+    if cmd == "tp" then
+        if UlRemedy.TrainerPreviewDebug then UlRemedy.TrainerPreviewDebug() end
+        return
+    end
+    if cmd == "tpreset" then
+        if UlRemedy.ResetTrainerPreview then UlRemedy.ResetTrainerPreview() end
         return
     end
     if cmd == "win" then

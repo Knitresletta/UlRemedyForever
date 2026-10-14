@@ -197,19 +197,35 @@ local lastError      -- last Lua error from the pin styling, shown by /ur fp
 -- own pins and on the game's own flight point pins alike; the ring and
 -- its animation are created in Lua on first use and reused when the pin
 -- is recycled.
+-- On a continent map (all of Eastern Kingdoms or Kalimdor) the icons are
+-- drawn a quarter smaller, since dozens of them crowd a map that size; on
+-- a zone map they keep their full size. Done by scaling the icon texture,
+-- not the pin, because the pin's own scale is managed by the map canvas
+-- and rewritten on every zoom.
+local CONTINENT_SCALE = 0.75
+
+local function OnContinentMap(pin)
+    local map = pin.GetMap and pin:GetMap()
+    local mapID = map and map.GetMapID and map:GetMapID()
+    local info = mapID and C_Map.GetMapInfo(mapID)
+    return info ~= nil and Enum.UIMapType ~= nil and info.mapType == Enum.UIMapType.Continent
+end
+
 local function ApplyLook(pin, undiscovered)
     local icon = pin.Texture
     if not icon then return end
 
+    local shrink = OnContinentMap(pin) and CONTINENT_SCALE or 1
     if undiscovered then
         icon:SetDesaturated(true)
         icon:SetVertexColor(1, 0.35, 0.35)
-        icon:SetScale(1.25)
+        icon:SetScale(1.25 * shrink)
     else
         icon:SetDesaturated(false)
         icon:SetVertexColor(1, 1, 1)
-        icon:SetScale(1)
+        icon:SetScale(shrink)
     end
+    if pin.Highlight then pin.Highlight:SetScale(shrink) end
 
     if not pin.UlRemedyRing then
         if not undiscovered then return end
@@ -230,6 +246,7 @@ local function ApplyLook(pin, undiscovered)
         alpha:SetSmoothing("IN_OUT")
         pin.UlRemedyPulse = group
     end
+    pin.UlRemedyRing:SetScale(shrink)
     if undiscovered then
         pin.UlRemedyRing:Show()
         pin.UlRemedyPulse:Play()

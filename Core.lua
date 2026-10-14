@@ -10,6 +10,7 @@ local DEFAULTS = {
     trainer     = true,
     cursor      = true,
     windows     = true,
+    bagsort     = true,
     inventory   = true,
     reagents    = true,
     auction     = true,
@@ -167,6 +168,7 @@ local FEATURES = {
     { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
+    { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },
@@ -206,6 +208,7 @@ end
 local function NotifyModules()
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
     if UlRemedy.RefreshMovableWindows then UlRemedy.RefreshMovableWindows() end
+    if UlRemedy.RefreshBagSort then UlRemedy.RefreshBagSort() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end

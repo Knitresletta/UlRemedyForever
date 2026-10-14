@@ -41,6 +41,8 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Bag Sort Button**: Blizzard's bag sort button is back on the combined bag. The Forever client draws its slot counter over the button in that corner, so it is there but cannot be seen or clicked; the addon moves it to the right end of the search box and shortens the search box to make room. Clicking it is Blizzard's own sort, nothing else. Separate bags are not touched, their backpack shows the button already.
 
+**Minimap Button**: One button on the minimap for the whole Ul family. Left-click opens this addon's options, right-click opens a menu with one row per installed sibling addon (UlDungeonCompanion, UlSource), and hovering lists them. This addon is not in the menu, the left click is its row. Drag it around the minimap's edge; the spot is remembered. This addon owns the button and the menu; the others register themselves at login and have no button of their own. `/ur minimap` hides it, `/ur hub` prints what is registered.
+
 **Inventory Tracker**: Remembers gold, bag contents and bank contents for every character you log in with. Hovering an item shows which of your characters have it and whether it sits in their bags or bank, with a total across characters. `/ur inv` opens a window where you can browse each character's items (or all at once), search by name, and see gold per character and in total. Bags and gold update live; the bank is read each time you open it, so a character's bank snapshot is from their last bank visit. Characters you no longer play can be removed with the **Forget character** button.
 
 **Reagent Tooltip**: Items that are used as a reagent in a profession recipe get a "Used by: Alchemy, Engineering" line in their tooltip. Professions this character knows are green, the rest grey. Smelting counts as Mining, so ore shows Mining next to the professions that use the bars, and rogue poison materials show Poisons. Two sources feed it. A shipped table generated from game data by `tools/build_reagents.py` (currently from the vanilla 1.12 database, so it does not know recipes that are new in Forever), and what the addon learns in play: every time a profession window has its recipe list up, every recipe's reagents are read and remembered account-wide. Open each of your professions once and the line is right for Forever for those professions, on all your characters. Recipes the window does not list (unlearned drop recipes) are not seen, so learning only ever adds professions to an item, never removes one. `/ur rs` shows what has been learned, `/ur rsreset` forgets it.
@@ -79,6 +81,8 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur winreset` | Forget all saved window positions |
 | `/ur win` | Print movable windows diagnostics, including the name of the window under the mouse |
 | `/ur bagsort` | Toggle the sort button on the combined bag |
+| `/ur minimap` | Toggle the minimap button |
+| `/ur hub` | Print minimap button diagnostics and the Ul addons registered in its menu |
 | `/ur errors` | Save this session's Lua errors and warnings, and the blocked actions behind the alert icon in the AddOns list (which function, how often, where from), to the saved variables and print a summary. Also done automatically on reload and logout. |
 | `/ur inventory` | Toggle the inventory tracker (tooltip lines and scanning) |
 | `/ur inv` | Open or close the inventory browser window |
@@ -100,6 +104,23 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur fp` | Print flight path diagnostics for the open map |
 | `/ur fpreset` | Forget this character's known flight paths and sync again at a flight master |
 | `/ur jd` | Print junk deleter diagnostics (free slots, cheapest junk, last trigger) |
+
+## For other Ul addons: joining the minimap menu
+
+An addon gets a row in the minimap button's menu by registering once at `PLAYER_LOGIN`. The guard makes it a no-op when UlRemedyForever is not installed, so the addon keeps working on its own.
+
+```lua
+if UlRemedy and UlRemedy.Register then
+    UlRemedy.Register({
+        id = "UlSource",                                   -- unique, registering again replaces the row
+        title = "UlSource",                                -- shown in the menu and the tooltip
+        icon = "Interface\\AddOns\\UlSource\\media\\icon",  -- optional
+        open = UlSource.ToggleWindow,                      -- called on click
+    })
+end
+```
+
+Add `## OptionalDeps: UlRemedyForever` to the addon's TOC so the client loads UlRemedyForever first. Nothing else is shared: no code, no saved variables.
 
 ## Installation
 

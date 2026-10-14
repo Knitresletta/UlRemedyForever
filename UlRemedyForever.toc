@@ -1,8 +1,8 @@
 ## Interface: 16001
 ## Title: UlRemedyForever
-## Notes: Utility collection for WoW: Forever: auto repair, junk selling and deleting, a bigger vendor window with search and a bag panel, group invite, enhanced trainer with a trainer preview in the spellbook, cursor ring, movable windows, a sort button on the combined bag, inventory tracker, reagent professions and auction prices in tooltips with price sharing between users, loot roll tracker, flight paths, transports and zone level ranges on the map.
+## Notes: Utility collection for WoW: Forever: auto repair, junk selling and deleting, a bigger vendor window with search and a bag panel, group invite, enhanced trainer with a trainer preview in the spellbook, cursor ring, movable windows, a sort button on the combined bag, a minimap button with a menu for the Ul addons, inventory tracker, reagent professions and auction prices in tooltips with price sharing between users, loot roll tracker, flight paths, transports and zone level ranges on the map.
 ## Author: knitresletta
-## Version: 1.14.0
+## Version: 1.15.0
 ## Category: Knitresletta
 ## IconTexture: Interface\AddOns\UlRemedyForever\media\icon
 ## SavedVariables: UlRemedyForeverDB, UlRemedyForeverInventoryDB, UlRemedyForeverWindowDB, UlRemedyForeverVendorDB, UlRemedyForeverReagentDB, UlRemedyForeverAuctionDB, UlRemedyForeverRollDB, UlRemedyForeverTrainerDB
@@ -19,6 +19,7 @@ TrainerPreview.lua
 CursorRing.lua
 MovableWindows.lua
 BagSort.lua
+MinimapButton.lua
 InventoryTracker.lua
 ReagentData.lua
 ReagentTooltip.lua

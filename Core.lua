@@ -20,6 +20,7 @@ local DEFAULTS = {
     transports  = true,
     zonelevels  = true,
     rolls       = true,
+    minimap     = true,
 }
 
 local function InitDB()
@@ -28,7 +29,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil and k ~= "errors" then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end
@@ -171,6 +172,7 @@ local FEATURES = {
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
+    { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the other Ul addons." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },
@@ -206,6 +208,7 @@ local function PrintHelp()
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
     print("  /ur tp: print trainer preview diagnostics (what is remembered, what is available)")
     print("  /ur tpreset: forget the remembered trainer list for this class")
+    print("  /ur hub: print minimap button diagnostics and the Ul addons registered in its menu")
 end
 
 -- Modules that need a nudge when a feature changes state.
@@ -213,6 +216,7 @@ local function NotifyModules()
     if UlRemedy.UpdateCursorRing then UlRemedy.UpdateCursorRing() end
     if UlRemedy.RefreshMovableWindows then UlRemedy.RefreshMovableWindows() end
     if UlRemedy.RefreshBagSort then UlRemedy.RefreshBagSort() end
+    if UlRemedy.RefreshMinimapButton then UlRemedy.RefreshMinimapButton() end
     if UlRemedy.RefreshTrainerPreview then UlRemedy.RefreshTrainerPreview() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
@@ -318,6 +322,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "tpreset" then
         if UlRemedy.ResetTrainerPreview then UlRemedy.ResetTrainerPreview() end
+        return
+    end
+    if cmd == "hub" then
+        if UlRemedy.HubDebug then UlRemedy.HubDebug() end
         return
     end
     if cmd == "win" then

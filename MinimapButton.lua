@@ -1,8 +1,9 @@
 -- Minimap Button: one button on the minimap for the whole Ul family.
 --
 -- Left-click opens this addon's options, right-click opens a menu with
--- one row per installed sibling addon (this one is not in it, the left
--- click is its row), hovering lists them. This addon is the
+-- a row for the inventory browser and one per installed sibling addon
+-- (the options window is not in it, the left click is its row), hovering
+-- lists them. This addon is the
 -- master: it owns the button and a registry, and the sibling addons
 -- (UlDungeonCompanion, UlSource) call UlRemedy.Register at login with an
 -- id, a title, an icon and a function that opens their window. The
@@ -63,8 +64,9 @@ function UlRemedy.Register(entry)
     return true
 end
 
--- The siblings in the order they arrived. This addon is not listed: the
--- left click is its row.
+-- The rows in the order they arrived: this addon's own windows first
+-- (registered below, at file load), then the siblings, which register at
+-- PLAYER_LOGIN. The options window is not listed: the left click is its row.
 local function Entries()
     local list = {}
     for _, rec in ipairs(registered) do
@@ -72,6 +74,18 @@ local function Entries()
     end
     return list
 end
+
+-- The inventory browser is a window of its own and gets a row. The
+-- function is resolved at click time, since InventoryTracker.lua loads
+-- after this file.
+UlRemedy.Register({
+    id = UlRemedy.name .. ".inventory",
+    title = "Inventory",
+    icon = "Interface\\Icons\\INV_Misc_Bag_10",
+    open = function()
+        if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
+    end,
+})
 
 ------------------------------------------------------------------------
 -- Position on the minimap's edge

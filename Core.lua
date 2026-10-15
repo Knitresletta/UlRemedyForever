@@ -172,7 +172,7 @@ local FEATURES = {
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
-    { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the other Ul addons." },
+    { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the inventory browser and the other Ul addons." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },

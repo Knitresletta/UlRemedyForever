@@ -1,7 +1,8 @@
 -- Minimap Button: one button on the minimap for the whole Ul family.
 --
 -- Left-click opens this addon's options, right-click opens a menu with
--- a row for the inventory browser and one per installed sibling addon
+-- rows for the inventory browser and the playtime window, and one per
+-- installed sibling addon
 -- (the options window is not in it, the left click is its row), hovering
 -- lists them. This addon is the
 -- master: it owns the button and a registry, and the sibling addons
@@ -84,6 +85,16 @@ UlRemedy.Register({
     icon = "Interface\\Icons\\INV_Misc_Bag_10",
     open = function()
         if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
+    end,
+})
+
+-- The playtime window, one bar per character.
+UlRemedy.Register({
+    id = UlRemedy.name .. ".playtime",
+    title = "Playtime",
+    icon = "Interface\\Icons\\INV_Misc_PocketWatch_01",
+    open = function()
+        if UlRemedy.TogglePlaytimeWindow then UlRemedy.TogglePlaytimeWindow() end
     end,
 })
 

@@ -13,6 +13,7 @@ local DEFAULTS = {
     windows     = true,
     bagsort     = true,
     inventory   = true,
+    playtime    = true,
     reagents    = true,
     auction     = true,
     auctionshare = true,
@@ -172,8 +173,9 @@ local FEATURES = {
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
-    { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the inventory browser and the other Ul addons." },
+    { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the inventory browser, the playtime window and the other Ul addons." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
+    { key = "playtime",    group = "Items",     label = "Playtime",          desc = "Remembers /played for every character; /ur played opens a window with a bar per character and the total." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },
     { key = "auctionshare", group = "Items",    label = "Price Sharing",     desc = "Swaps auction prices with other UlRemedyForever users on your realm over a hidden chat channel." },
@@ -191,6 +193,8 @@ local function PrintHelp()
         print("  /ur " .. f.key .. ": " .. f.label .. " (" .. state .. "): " .. f.desc)
     end
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
+    print("  /ur played: open the playtime window (a bar per character, total across them)")
+    print("  /ur pt: print playtime diagnostics")
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur zones: print the zone level ranges, colored for your level, and the zone maps the data does not know")
@@ -219,6 +223,7 @@ local function NotifyModules()
     if UlRemedy.RefreshMinimapButton then UlRemedy.RefreshMinimapButton() end
     if UlRemedy.RefreshTrainerPreview then UlRemedy.RefreshTrainerPreview() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
+    if UlRemedy.RefreshPlaytime then UlRemedy.RefreshPlaytime() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.RefreshZoneLevels then UlRemedy.RefreshZoneLevels() end
@@ -261,6 +266,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "inv" or cmd == "bags" then
         if UlRemedy.ToggleInventoryWindow then UlRemedy.ToggleInventoryWindow() end
+        return
+    end
+    if cmd == "played" then
+        if UlRemedy.TogglePlaytimeWindow then UlRemedy.TogglePlaytimeWindow() end
+        return
+    end
+    if cmd == "pt" then
+        if UlRemedy.PlaytimeDebug then UlRemedy.PlaytimeDebug() end
         return
     end
     if cmd == "fp" then

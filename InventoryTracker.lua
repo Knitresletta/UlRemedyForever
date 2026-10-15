@@ -319,14 +319,75 @@ local function AppendItems(rows, source, where, rec, filter)
     end
 end
 
+-- All characters: one row per item, the counts added up, the Character
+-- column naming every holder (most first). The per-character breakdown
+-- is in the item's tooltip, which the tracker fills in anyway.
+local function AppendMergedItems(rows, filter)
+    local byItem = {}
+    local function add(source, where, rec)
+        for itemID, count in pairs(source) do
+            local row = byItem[itemID]
+            if row == nil then
+                local name, link, quality, icon = ItemDisplay(itemID)
+                if filter and not name:lower():find(filter, 1, true) then
+                    row = false
+                else
+                    row = {
+                        itemID = itemID, name = name, link = link, quality = quality,
+                        icon = icon, count = 0, holders = {}, places = {},
+                    }
+                end
+                byItem[itemID] = row
+            end
+            if row then
+                row.count = row.count + count
+                row.places[where] = true
+                local key = rec or ACCOUNT_KEY
+                local h = row.holders[key]
+                if not h then
+                    h = { rec = rec, count = 0 }
+                    row.holders[key] = h
+                end
+                h.count = h.count + count
+            end
+        end
+    end
+    for _, rec in ipairs(SortedChars()) do
+        add(rec.bags, "Bags", rec)
+        add(rec.bank, "Bank", rec)
+    end
+    add(DB.account.bank, "Bank", nil)
+
+    for _, row in pairs(byItem) do
+        if row then
+            local list = {}
+            for _, h in pairs(row.holders) do list[#list + 1] = h end
+            table.sort(list, function(a, b)
+                if a.count ~= b.count then return a.count > b.count end
+                return (a.rec and a.rec.name or "") < (b.rec and b.rec.name or "")
+            end)
+            local names = {}
+            for _, h in ipairs(list) do
+                names[#names + 1] = h.rec and ColoredName(h.rec) or ("|cff99ccff" .. ACCOUNT_LABEL .. "|r")
+            end
+            row.ownerText = table.concat(names, ", ")
+            if row.places.Bags and row.places.Bank then
+                row.where = "Both"
+            elseif row.places.Bags then
+                row.where = "Bags"
+            else
+                row.where = "Bank"
+            end
+            row.holders, row.places = nil, nil
+            rows[#rows + 1] = row
+        end
+    end
+end
+
 local function BuildItemList(selected, filter)
     local rows = {}
     if selected == ALL_KEY then
-        for _, rec in ipairs(SortedChars()) do
-            AppendItems(rows, rec.bags, "Bags", rec, filter)
-            AppendItems(rows, rec.bank, "Bank", rec, filter)
-        end
-        AppendItems(rows, DB.account.bank, "Bank", nil, filter)
+        AppendMergedItems(rows, filter)
     elseif selected == ACCOUNT_KEY then
         AppendItems(rows, DB.account.bank, "Bank", nil, filter)
     else
@@ -366,7 +427,7 @@ local function RefreshWindow()
         local rec = DB.chars[window.selected]
         label = rec and ColoredName(rec) or "?"
     end
-    window.status:SetText(string.format("%s: %d item stack(s)", label, count))
+    window.status:SetText(string.format("%s: %d item%s", label, count, window.selected == ALL_KEY and "s, all characters added up" or " row(s)"))
 
     local rec = DB.chars[window.selected]
     local isMe = rec == me
@@ -426,6 +487,7 @@ local function InitItemRow(button, data)
         button.owner:SetPoint("RIGHT", -4, 0)
         button.owner:SetWidth(96)
         button.owner:SetJustifyH("LEFT")
+        button.owner:SetWordWrap(false)
         local hl = button:CreateTexture(nil, "HIGHLIGHT")
         hl:SetAllPoints()
         hl:SetColorTexture(1, 1, 1, 0.08)
@@ -453,7 +515,7 @@ local function InitItemRow(button, data)
     button.name:SetTextColor(r, g, b)
     button.count:SetText(data.count)
     button.where:SetText(data.where)
-    button.owner:SetText(data.rec and ColoredName(data.rec) or ("|cff99ccff" .. ACCOUNT_LABEL .. "|r"))
+    button.owner:SetText(data.ownerText or (data.rec and ColoredName(data.rec) or ("|cff99ccff" .. ACCOUNT_LABEL .. "|r")))
 end
 
 local function MakeScrollList(parent, rowHeight, initializer)

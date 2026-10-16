@@ -1,10 +1,9 @@
 -- Minimap Button: one button on the minimap for the whole Ul family.
 --
--- Left-click opens this addon's options, right-click opens a menu with
--- rows for the inventory browser and the playtime window, and one per
--- installed sibling addon
--- (the options window is not in it, the left click is its row), hovering
--- lists them. This addon is the
+-- Left-click opens a menu with rows for the inventory browser and the
+-- playtime window, and one per installed sibling addon; right-click
+-- opens this addon's options (the options window is not in the menu,
+-- the right click is its row). Hovering lists them. This addon is the
 -- master: it owns the button and a registry, and the sibling addons
 -- (UlDungeonCompanion, UlSource) call UlRemedy.Register at login with an
 -- id, a title, an icon and a function that opens their window. The
@@ -67,7 +66,7 @@ end
 
 -- The rows in the order they arrived: this addon's own windows first
 -- (registered below, at file load), then the siblings, which register at
--- PLAYER_LOGIN. The options window is not listed: the left click is its row.
+-- PLAYER_LOGIN. The options window is not listed: the right click is its row.
 local function Entries()
     local list = {}
     for _, rec in ipairs(registered) do
@@ -280,8 +279,8 @@ end
 local function ShowTooltip(self)
     GameTooltip:SetOwner(self, "ANCHOR_LEFT")
     GameTooltip:AddLine(UlRemedy.name .. " " .. UlRemedy.Version())
-    GameTooltip:AddLine("Left-click: options", 1, 1, 1)
-    GameTooltip:AddLine("Right-click: Ul addons menu", 1, 1, 1)
+    GameTooltip:AddLine("Left-click: Ul addons menu", 1, 1, 1)
+    GameTooltip:AddLine("Right-click: options", 1, 1, 1)
     GameTooltip:AddLine("Drag: move around the minimap", 1, 1, 1)
     local list = Entries()
     if #list > 0 then
@@ -339,10 +338,10 @@ local function CreateButton()
     b:SetScript("OnClick", function(self, mouseButton)
         if dragging then return end
         if mouseButton == "RightButton" then
-            ToggleMenu()
-        else
             if menu then menu:Hide() end
             if UlRemedy.ToggleOptions then UlRemedy.ToggleOptions() end
+        else
+            ToggleMenu()
         end
     end)
     return b

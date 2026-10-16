@@ -22,6 +22,7 @@ local DEFAULTS = {
     zonelevels  = true,
     rolls       = true,
     minimap     = true,
+    chatcopy    = true,
 }
 
 local function InitDB()
@@ -174,6 +175,7 @@ local FEATURES = {
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
     { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click opens the options, right-click lists the inventory browser, the playtime window and the other Ul addons." },
+    { key = "chatcopy",    group = "Interface", label = "Chat Copy",         desc = "A Copy button at the chat frame's corner opens the chat log in a window where the text can be selected and copied." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "playtime",    group = "Items",     label = "Playtime",          desc = "Remembers /played for every character; /ur played opens a window with a bar per character and the total." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
@@ -194,6 +196,7 @@ local function PrintHelp()
     end
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
     print("  /ur played: open the playtime window (a bar per character, total across them)")
+    print("  /ur chat: open the chat log in a window the text can be copied from")
     print("  /ur pt: print playtime diagnostics")
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
@@ -225,6 +228,7 @@ local function NotifyModules()
     if UlRemedy.RefreshTrainerPreview then UlRemedy.RefreshTrainerPreview() end
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshPlaytime then UlRemedy.RefreshPlaytime() end
+    if UlRemedy.RefreshChatCopy then UlRemedy.RefreshChatCopy() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.RefreshZoneLevels then UlRemedy.RefreshZoneLevels() end
@@ -271,6 +275,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "played" then
         if UlRemedy.TogglePlaytimeWindow then UlRemedy.TogglePlaytimeWindow() end
+        return
+    end
+    if cmd == "chat" then
+        if UlRemedy.ToggleChatCopy then UlRemedy.ToggleChatCopy() end
         return
     end
     if cmd == "pt" then

@@ -23,31 +23,37 @@ end
 
 -- Pet training uses the same trainer frame: the hunter's Beast Training
 -- window and the pet and demon trainers list the pet's abilities, not the
--- player's, and Beast Training is paid in training points. The client
--- says so per service where IsTrainerServiceLearnSpell exists (its second
--- return). Failing that, a list where no unlearned service costs any gold
--- is paid in training points, which is pet training. Shared with
--- TrainerPreview, which must not file pet abilities under the class.
-function UlRemedy.IsPetTraining()
+-- player's, and Beast Training is paid in training points. What tells
+-- them apart on Forever (checked 16.10.2026): Beast Training is cast by
+-- the hunter, so there is no "npc" unit while it is open, and the window
+-- is titled after the pet. A class trainer is an NPC, so "npc" is set.
+-- Prices do not tell: training points come back from GetTrainerServiceCost
+-- as plain numbers, so a pet list looks priced in gold. Spell links do not
+-- tell either: GetTrainerServiceItemLink is nil for every service on
+-- Forever. IsTrainerServiceLearnSpell, which would say so per service,
+-- does not exist there; it is used where it does. A pet trainer NPC
+-- (selling pet abilities for gold) still counts as "class", a known gap.
+-- Shared with TrainerPreview, which must not file pet abilities under the
+-- class, and with Train All, which the client blocks at pet training.
+-- Returns "class", "pet" or "unknown" (nothing listed yet).
+function UlRemedy.TrainerKind()
+    if not UnitName("npc") then return "pet" end
     local n = type(GetNumTrainerServices) == "function" and GetNumTrainerServices() or 0
-    if n == 0 then return false end
-    local learn = type(IsTrainerServiceLearnSpell) == "function"
-    local anyCost, anyUnlearned = false, false
-    for i = 1, n do
-        local category = ServiceCategory(i)
-        if category and category ~= "header" then
-            if learn then
+    if n == 0 then return "unknown" end
+    if type(IsTrainerServiceLearnSpell) == "function" then
+        for i = 1, n do
+            local category = ServiceCategory(i)
+            if category and category ~= "header" then
                 local ok, isLearn, isPet = pcall(IsTrainerServiceLearnSpell, i)
-                if ok and isLearn and isPet then return true end
-            end
-            if category ~= "used" then
-                anyUnlearned = true
-                local cost = type(GetTrainerServiceCost) == "function" and GetTrainerServiceCost(i) or 0
-                if (cost or 0) > 0 then anyCost = true end
+                if ok and isLearn and isPet then return "pet" end
             end
         end
     end
-    return anyUnlearned and not anyCost
+    return "class"
+end
+
+function UlRemedy.IsPetTraining()
+    return UlRemedy.TrainerKind() == "pet"
 end
 
 -- Returns trained, spent, unaffordable, detail. detail is only set when

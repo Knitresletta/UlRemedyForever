@@ -33,7 +33,7 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Enhanced Trainer**: Adds a **Train All** button to trainers that learns everything you can afford in one click.
 
-**Trainer Preview**: What your class trainer has for you, without walking there. The list is learned on each visit to your class trainer (every ability and rank with its level and price, remembered per class across your characters), so visit the trainer once and it is filled in. A **Trainer** tab in the spellbook, to the right of Blizzard's own tabs, shows what is available now with the total price, and what is coming up at which level. Hovering a line shows the spell's tooltip. On level up a chat line names the abilities that just became available and what they cost in total. Ranks you have replaced with a higher rank do not count as missing. `/ur tp` prints diagnostics, `/ur tpreset` forgets the list for the current class.
+**Trainer Preview**: What your class trainer has for you, without walking there. The list is learned on each visit to your class trainer (every ability and rank with its level and price, remembered per class across your characters), so visit the trainer once and it is filled in. A **Trainer** tab in the spellbook, to the right of Blizzard's own tabs, shows what is available now with the total price, and what is coming up at which level. Hovering a line shows the spell's tooltip. On level up a chat line names the abilities that just became available and what they cost in total. Ranks you have replaced with a higher rank do not count as missing. A visit only adds to the list, it never shrinks it. Beast Training shares the trainer window and is left alone (Train All is hidden there too; the client blocks it), and a pet trainer's wares are filtered out by name. `/ur tp` prints diagnostics, `/ur tpreset` forgets the list for the current class.
 
 **Cursor Ring**: A dusty purple ring with a soft silver glow that follows your mouse cursor, visible on light and dark backgrounds alike.
 
@@ -78,6 +78,7 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur trainerpreview` | Toggle the Trainer tab in the spellbook and the level-up note |
 | `/ur tp` | Print trainer preview diagnostics (what is remembered, what is available now) |
 | `/ur tpreset` | Forget the remembered trainer list for the current class |
+| `/ur tplevel [n]` | What the level-up line would say at level n (current level when left out), and why |
 | `/ur cursor` | Toggle the cursor ring |
 | `/ur windows` | Toggle movable windows (drag Blizzard windows and bags; positions are remembered) |
 | `/ur winreset` | Forget all saved window positions |

@@ -212,6 +212,7 @@ local function PrintHelp()
     print("  /ur win: print movable windows diagnostics (hover a window first to see its name)")
     print("  /ur tp: print trainer preview diagnostics (what is remembered, what is available)")
     print("  /ur tpreset: forget the remembered trainer list for this class")
+    print("  /ur tplevel [n]: what the level-up line would say at level n, and why")
     print("  /ur hub: print minimap button diagnostics and the Ul addons registered in its menu")
 end
 
@@ -335,6 +336,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "tpreset" then
         if UlRemedy.ResetTrainerPreview then UlRemedy.ResetTrainerPreview() end
+        return
+    end
+    if cmd:match("^tplevel") then
+        if UlRemedy.TrainerPreviewLevelTest then UlRemedy.TrainerPreviewLevelTest(cmd:match("^tplevel%s*(%d*)")) end
         return
     end
     if cmd == "hub" then

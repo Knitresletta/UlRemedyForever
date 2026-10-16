@@ -6,7 +6,12 @@
 -- account-wide, in UlRemedyForeverTrainerDB. A class trainer lists every
 -- rank up to the class's maximum with its level, so one visit covers the
 -- class. The trainer window's own filters are switched to show everything
--- while the list is read and put back afterwards. Away from the trainer
+-- while the list is read and put back afterwards; the TRAINER_UPDATEs
+-- that switching causes are ignored, or the read would trigger itself
+-- forever. A read with every filter on replaces the class's list, so
+-- anything the trainer no longer shows drops out. Pet training (Beast
+-- Training, pet and demon trainers) uses the same frame and is skipped:
+-- those are the pet's abilities. Away from the trainer
 -- the list is compared with the player's level and spellbook to give
 -- "available now" and "coming up". A rank counts as known when the
 -- spellbook has it or a higher rank of the same name (learning a higher
@@ -34,6 +39,8 @@ local db                 -- UlRemedyForeverTrainerDB
 local panel, tab
 local scanning = false
 local scanQueued = false
+local ignoreUpdatesUntil = 0 -- TRAINER_UPDATEs before this time are our own filter switching
+local lastSkip               -- why the last trainer visit was not read, for /ur tp
 local lastError
 
 local function Enabled()
@@ -145,22 +152,30 @@ local function SpellIDFromLink(link)
     return tonumber(link:match("[Hh]spell:(%d+)") or link:match("[Hh]enchant:(%d+)"))
 end
 
--- Runs fn with every trainer filter on, then puts the filters back.
+-- Runs fn with every trainer filter on, then puts the filters back. fn
+-- gets true when every filter really was on while it ran. Switching a
+-- filter fires TRAINER_UPDATE, so updates for the next moment are marked
+-- as ours and not answered with another read.
 local function WithAllShown(fn)
-    local saved, changed = {}, false
+    local saved, changed, allOn = {}, false, false
     local canFilter = type(GetTrainerServiceTypeFilter) == "function"
         and type(SetTrainerServiceTypeFilter) == "function"
     if canFilter then
+        allOn = true
         for _, f in ipairs(FILTERS) do
             saved[f] = GetTrainerServiceTypeFilter(f)
-            if not saved[f] and pcall(SetTrainerServiceTypeFilter, f, true) then changed = true end
+            if not saved[f] then
+                if pcall(SetTrainerServiceTypeFilter, f, true) then changed = true else allOn = false end
+            end
         end
     end
-    local ok, err = pcall(fn)
+    if changed then ignoreUpdatesUntil = GetTime() + 2 end
+    local ok, err = pcall(fn, allOn)
     if changed then
         for _, f in ipairs(FILTERS) do
             if not saved[f] then pcall(SetTrainerServiceTypeFilter, f, false) end
         end
+        ignoreUpdatesUntil = GetTime() + 2
     end
     if not ok then error(err, 0) end
 end
@@ -168,7 +183,8 @@ end
 local function ScanTrainerUnsafe()
     local list = ClassList(true)
     local seen = 0
-    WithAllShown(function()
+    WithAllShown(function(allOn)
+        local fresh = {}
         local n = GetNumTrainerServices() or 0
         for i = 1, n do
             local name, rank, category = ServiceFields(i)
@@ -186,9 +202,14 @@ local function ScanTrainerUnsafe()
                 if category ~= "used" or (cost or 0) > 0 then rec.cost = cost or 0 end
                 if category == "used" then rec.usedSeen = true end
                 list.spells[key] = rec
+                fresh[key] = rec
                 seen = seen + 1
             end
         end
+        -- The whole list was visible: what the trainer did not show is
+        -- not the class's (pet abilities filed here by older versions,
+        -- for one) and goes.
+        if allOn and seen > 0 then list.spells = fresh end
     end)
     list.lastVisit = date("%Y-%m-%d %H:%M")
     list.trainer = UnitName("npc")
@@ -197,8 +218,19 @@ end
 
 local function ScanTrainer()
     if scanning or not db then return end
-    if type(IsTradeskillTrainer) == "function" and IsTradeskillTrainer() then return end
     if type(GetNumTrainerServices) ~= "function" or type(GetTrainerServiceInfo) ~= "function" then return end
+    -- Nothing has arrived yet: leave the filters alone, so the update
+    -- that brings the list is not mistaken for one of ours.
+    if (GetNumTrainerServices() or 0) == 0 then return end
+    if type(IsTradeskillTrainer) == "function" and IsTradeskillTrainer() then
+        lastSkip = "tradeskill trainer"
+        return
+    end
+    if UlRemedy.IsPetTraining and UlRemedy.IsPetTraining() then
+        lastSkip = "pet training"
+        return
+    end
+    lastSkip = nil
     scanning = true
     local ok, err = pcall(ScanTrainerUnsafe)
     scanning = false
@@ -486,9 +518,12 @@ function UlRemedy.TrainerPreviewDebug()
         ClassKey(), count, #available, #upcoming))
     print("  last visit: " .. tostring(list and list.lastVisit) .. ", trainer: " .. tostring(list and list.trainer))
     print("  spellbook tab: " .. (tab and "built" or "not built") .. ", PlayerSpellsFrame: " .. tostring(PlayerSpellsFrame ~= nil))
-    for _, name in ipairs({ "GetTrainerServiceLevelReq", "GetTrainerServiceCost", "GetTrainerServiceItemLink", "IsTradeskillTrainer", "IsSpellKnown" }) do
+    for _, name in ipairs({ "GetTrainerServiceLevelReq", "GetTrainerServiceCost", "GetTrainerServiceItemLink", "IsTradeskillTrainer", "IsTrainerServiceLearnSpell", "IsSpellKnown" }) do
         print("  " .. name .. ": " .. type(_G[name]))
     end
+    print("  last visit skipped: " .. tostring(lastSkip) .. ", trainer open now: "
+        .. tostring(ClassTrainerFrame and ClassTrainerFrame:IsShown() or false)
+        .. ", pet training now: " .. tostring(UlRemedy.IsPetTraining and UlRemedy.IsPetTraining()))
     for i = 1, math.min(5, #available) do
         local rec = available[i]
         print("  available: " .. Label(rec) .. ", level " .. (rec.level or 0) .. ", " .. UlRemedy.MoneyText(rec.cost or 0))
@@ -534,7 +569,9 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         if C_AddOns and C_AddOns.LoadAddOn then C_AddOns.LoadAddOn("Blizzard_TrainerUI") end
         ScheduleScan()
     elseif event == "TRAINER_UPDATE" then
-        ScheduleScan()
+        -- Our own filter switching comes back as updates; reading again
+        -- on those would switch the filters again, without end.
+        if GetTime() >= ignoreUpdatesUntil then ScheduleScan() end
     elseif event == "SPELLS_CHANGED" then
         RefreshPanel()
     end

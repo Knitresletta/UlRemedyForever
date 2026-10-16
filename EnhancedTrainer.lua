@@ -21,6 +21,35 @@ local function ServiceCategory(index)
     return nil
 end
 
+-- Pet training uses the same trainer frame: the hunter's Beast Training
+-- window and the pet and demon trainers list the pet's abilities, not the
+-- player's, and Beast Training is paid in training points. The client
+-- says so per service where IsTrainerServiceLearnSpell exists (its second
+-- return). Failing that, a list where no unlearned service costs any gold
+-- is paid in training points, which is pet training. Shared with
+-- TrainerPreview, which must not file pet abilities under the class.
+function UlRemedy.IsPetTraining()
+    local n = type(GetNumTrainerServices) == "function" and GetNumTrainerServices() or 0
+    if n == 0 then return false end
+    local learn = type(IsTrainerServiceLearnSpell) == "function"
+    local anyCost, anyUnlearned = false, false
+    for i = 1, n do
+        local category = ServiceCategory(i)
+        if category and category ~= "header" then
+            if learn then
+                local ok, isLearn, isPet = pcall(IsTrainerServiceLearnSpell, i)
+                if ok and isLearn and isPet then return true end
+            end
+            if category ~= "used" then
+                anyUnlearned = true
+                local cost = type(GetTrainerServiceCost) == "function" and GetTrainerServiceCost(i) or 0
+                if (cost or 0) > 0 then anyCost = true end
+            end
+        end
+    end
+    return anyUnlearned and not anyCost
+end
+
 -- Returns trained, spent, unaffordable, detail. detail is only set when
 -- nothing was available at all.
 function UlRemedy.TrainAllAvailable()
@@ -94,6 +123,10 @@ local function OnTrainAllClick()
         print(UlRemedy.name .. ": trainer API " .. missing .. " is not available on this client.")
         return
     end
+    if UlRemedy.IsPetTraining() then
+        print(UlRemedy.name .. ": Train All is for class trainers. Pet abilities are picked one at a time.")
+        return
+    end
     local trained, spent, unaffordable, detail = UlRemedy.TrainAllAvailable()
     if detail then
         print(UlRemedy.name .. ": Nothing available to train (" .. detail .. ").")
@@ -124,17 +157,27 @@ local function EnsureButton()
     return b
 end
 
-local frame = CreateFrame("Frame", "UlRemedyTrainerFrame")
-frame:RegisterEvent("TRAINER_SHOW")
-frame:SetScript("OnEvent", function()
-    -- Blizzard_TrainerUI is load-on-demand; make sure the frame exists.
-    if C_AddOns and C_AddOns.LoadAddOn then
-        C_AddOns.LoadAddOn("Blizzard_TrainerUI")
-    end
-    if not UlRemedy.enabled.trainer then
+-- The list is often still empty at TRAINER_SHOW and fills in on
+-- TRAINER_UPDATE, so the button is decided on both: shown at class
+-- trainers, hidden at pet training.
+local function UpdateButton()
+    if not UlRemedy.enabled.trainer or UlRemedy.IsPetTraining() then
         if trainAllButton then trainAllButton:Hide() end
         return
     end
     local b = EnsureButton()
     if b then b:Show() end
+end
+
+local frame = CreateFrame("Frame", "UlRemedyTrainerFrame")
+frame:RegisterEvent("TRAINER_SHOW")
+frame:RegisterEvent("TRAINER_UPDATE")
+frame:SetScript("OnEvent", function(_, event)
+    if event == "TRAINER_SHOW" then
+        -- Blizzard_TrainerUI is load-on-demand; make sure the frame exists.
+        if C_AddOns and C_AddOns.LoadAddOn then
+            C_AddOns.LoadAddOn("Blizzard_TrainerUI")
+        end
+    end
+    UpdateButton()
 end)

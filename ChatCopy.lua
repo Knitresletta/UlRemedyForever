@@ -47,13 +47,13 @@ local function SourceFrame()
     return nil
 end
 
--- Returns the text, the number of lines, the number that could not be
--- read, and the frame's name.
-local function ChatText()
+-- Returns the lines, the number that could not be read, and the frame's
+-- name.
+local function ChatLines()
     local f = SourceFrame()
-    if not f then return "", 0, 0, "?" end
+    if not f then return {}, 0, "?" end
     local okN, n = pcall(f.GetNumMessages, f)
-    if not okN or type(n) ~= "number" then return "", 0, 0, f:GetName() or "?" end
+    if not okN or type(n) ~= "number" then return {}, 0, f:GetName() or "?" end
     local lines, unreadable = {}, 0
     for i = 1, n do
         local ok, msg = pcall(f.GetMessageInfo, f, i)
@@ -64,24 +64,37 @@ local function ChatText()
             unreadable = unreadable + 1
         end
     end
-    return table.concat(lines, "\n"), #lines, unreadable, f:GetName() or "?"
+    return lines, unreadable, f:GetName() or "?"
 end
 
 ------------------------------------------------------------------------
 -- Window
 ------------------------------------------------------------------------
 
+-- The lines go in one at a time: a line the edit box refuses (one it
+-- cannot render, or a value the client keeps secret) is then the only
+-- one lost, and the status line says so, with the size of what is
+-- really in the box.
 local function Fill()
     if not window then return end
-    local text, count, unreadable, name = ChatText()
-    window.edit:SetText(text)
-    local status = string.format("%d lines from %s", count, name)
+    local lines, unreadable, name = ChatLines()
+    local edit = window.edit
+    edit:SetText("")
+    local shown, refused = 0, 0
+    for _, line in ipairs(lines) do
+        local ok = pcall(edit.Insert, edit, line .. "\n")
+        if ok then shown = shown + 1 else refused = refused + 1 end
+    end
+    local okT, text = pcall(edit.GetText, edit)
+    local size = okT and type(text) == "string" and #text or -1
+    local status = string.format("%d lines from %s, %d characters in the box", shown, name, size)
     if unreadable > 0 then status = status .. string.format(", %d could not be read", unreadable) end
+    if refused > 0 then status = status .. string.format(", %d refused by the box", refused) end
     window.status:SetText(status)
     -- Everything selected: Ctrl+C right away copies the whole log.
-    window.edit:SetFocus()
-    window.edit:HighlightText()
-    window.edit:SetCursorPosition(#text)
+    edit:SetFocus()
+    edit:SetCursorPosition(0)
+    edit:HighlightText()
 end
 
 local function CreateWindow()

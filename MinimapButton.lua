@@ -320,6 +320,7 @@ local function CreateButton()
     border:SetSize(53, 53)
     border:SetPoint("TOPLEFT", b, "TOPLEFT", 0, 0)
     border:SetTexture("Interface\\Minimap\\MiniMap-TrackingBorder")
+    b.Border = border -- named so Dark Mode knows it for frame
 
     b:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 

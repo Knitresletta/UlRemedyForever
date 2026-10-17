@@ -23,6 +23,7 @@ local DEFAULTS = {
     rolls       = true,
     minimap     = true,
     chatcopy    = true,
+    darkmode    = false,
 }
 
 local function InitDB()
@@ -31,7 +32,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end
@@ -176,6 +177,7 @@ local FEATURES = {
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
     { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click lists the inventory browser, the playtime window and the other Ul addons, right-click opens the options." },
     { key = "chatcopy",    group = "Interface", label = "Chat Copy",         desc = "A Copy button at the chat frame's corner opens the chat log in a window where the text can be selected and copied." },
+    { key = "darkmode",    group = "Interface", label = "Dark Mode",         desc = "Turns Blizzard's frame borders dark grey; backgrounds, icons, portraits and bars are left alone. /ur shade sets how dark." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "playtime",    group = "Items",     label = "Playtime",          desc = "Remembers /played for every character; /ur played opens a window with a bar per character and the total." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
@@ -197,6 +199,8 @@ local function PrintHelp()
     print("  /ur inv: open the inventory browser (all characters, gold and items)")
     print("  /ur played: open the playtime window (a bar per character, total across them)")
     print("  /ur chat: open the chat log in a window the text can be copied from")
+    print("  /ur shade <0.2-1>: how dark Dark Mode shades the frame art (lower is darker)")
+    print("  /ur darkprobe [frame|mouse]: what Dark Mode found, every texture in one frame, or the frame under the mouse")
     print("  /ur pt: print playtime diagnostics")
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
@@ -229,6 +233,7 @@ local function NotifyModules()
     if UlRemedy.RescanInventory then UlRemedy.RescanInventory() end
     if UlRemedy.RefreshPlaytime then UlRemedy.RefreshPlaytime() end
     if UlRemedy.RefreshChatCopy then UlRemedy.RefreshChatCopy() end
+    if UlRemedy.RefreshDarkMode then UlRemedy.RefreshDarkMode() end
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.RefreshZoneLevels then UlRemedy.RefreshZoneLevels() end
@@ -279,6 +284,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "chat" then
         if UlRemedy.ToggleChatCopy then UlRemedy.ToggleChatCopy() end
+        return
+    end
+    if cmd:match("^shade") then
+        if UlRemedy.SetShade then UlRemedy.SetShade(cmd:match("^shade%s*(.*)$")) end
+        return
+    end
+    if cmd:match("^darkprobe") then
+        if UlRemedy.DarkModeProbe then UlRemedy.DarkModeProbe(strtrim(msg):match("^[Dd][Aa][Rr][Kk][Pp][Rr][Oo][Bb][Ee]%s*(.*)$")) end
         return
     end
     if cmd == "pt" then

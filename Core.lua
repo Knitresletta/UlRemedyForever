@@ -7,6 +7,7 @@ local DEFAULTS = {
     vendor      = true,
     vendorbags  = true,
     groupinvite = true,
+    autoquest   = true,
     trainer     = true,
     trainerpreview = true,
     cursor      = true,
@@ -169,6 +170,7 @@ local FEATURES = {
     { key = "vendor",      group = "Vendor",    label = "Vendor Window",     desc = "Bigger merchant window: scrollable grid, search, filters, sorting." },
     { key = "vendorbags",  group = "Vendor",    label = "Vendor Bags",       desc = "Bag panel docked to the vendor; one click sells an item." },
     { key = "groupinvite", group = "Group",     label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
+    { key = "autoquest",   group = "Quests",    label = "Auto Quest",        desc = "Hold Shift while talking to an NPC: quests are accepted and handed in, a lone gossip line is chosen. A choice between rewards is left to you." },
     { key = "rolls",       group = "Group",     label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each loot roll, by the party frames." },
     { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
     { key = "trainerpreview", group = "Interface", label = "Trainer Preview",  desc = "A Trainer tab in the spellbook with what your class trainer has for you, and a note on level up." },
@@ -187,7 +189,7 @@ local FEATURES = {
     { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
     { key = "zonelevels",  group = "Map",       label = "Zone Levels",       desc = "Level range and territory under the zone name on continent maps." },
 }
-UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Interface", "Items", "Map" }
+UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Quests", "Interface", "Items", "Map" }
 UlRemedy.FEATURES = FEATURES
 
 local function PrintHelp()

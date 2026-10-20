@@ -31,6 +31,8 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Group Invite**: Auto-accepts group invites from friends, Battle.net friends and guildmates. Unknown inviters are left for you to handle.
 
+**Auto Quest**: Hold Shift while talking to an NPC and the quest business is done for you: available quests are accepted one after another, quests you have finished are handed in, and a lone gossip line is chosen when the NPC has nothing else to offer. Without Shift, nothing happens. Left to you on purpose: a choice between several rewards (the reward window stays open), quests that cost gold to hand in and PvP-flagged quests (both get Blizzard's confirmation), a quest whose objectives are not done, and an NPC with several gossip lines. Trivial grey quests are accepted like any other, since holding Shift is a clear enough wish. `/ur autoquest` turns it off.
+
 **Enhanced Trainer**: Adds a **Train All** button to trainers that learns everything you can afford in one click.
 
 **Trainer Preview**: What your class trainer has for you, without walking there. The list is learned on each visit to your class trainer (every ability and rank with its level and price, remembered per class across your characters), so visit the trainer once and it is filled in. A **Trainer** tab in the spellbook, to the right of Blizzard's own tabs, shows what is available now with the total price, and what is coming up at which level. Hovering a line shows the spell's tooltip. On level up a chat line names the abilities that just became available and what they cost in total. Ranks you have replaced with a higher rank do not count as missing. A visit only adds to the list, it never shrinks it. Beast Training shares the trainer window and is left alone (Train All is hidden there too; the client blocks it), and a pet trainer's wares are filtered out by name. `/ur tp` prints diagnostics, `/ur tpreset` forgets the list for the current class.
@@ -67,7 +69,7 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 ## Options and commands
 
-Type `/ur` to open the options window: one checkbox per feature, grouped under Vendor, Group, Interface, Items and Map, in the game's own style, in two columns, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
+Type `/ur` to open the options window: one checkbox per feature, grouped under Vendor, Group, Quests, Interface, Items and Map, in the game's own style, in two columns, plus buttons for the inventory browser and the reset actions. Escape closes it. Every feature can also be toggled from chat with `/ur <feature>`, and `/ur help` prints the full command list.
 
 | Command | Description |
 |---------|-------------|
@@ -78,6 +80,7 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur vendorbags` | Toggle the bag panel docked to the vendor window |
 | `/ur vendorreset` | Reset the vendor window to its default size |
 | `/ur groupinvite` | Toggle group invite auto-accept |
+| `/ur autoquest` | Toggle Auto Quest (hold Shift at an NPC to accept, hand in and pick a lone gossip line) |
 | `/ur trainer` | Toggle the trainer Train All button |
 | `/ur trainerpreview` | Toggle the Trainer tab in the spellbook and the level-up note |
 | `/ur shade <0.2-1>` | How dark Dark Mode shades the frame art (lower is darker) |

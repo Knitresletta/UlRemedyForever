@@ -45,6 +45,8 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Minimap Button**: One button on the minimap for the whole Ul family. Left-click opens a menu with rows for the inventory browser and the playtime window, and one per installed sibling addon (UlDungeonCompanion, UlSource), right-click opens this addon's options, and hovering lists them. The options window is not in the menu, the right click is its row. Drag it around the minimap's edge; the spot is remembered. This addon owns the button and the menu; the others register themselves at login and have no button of their own. `/ur minimap` hides it, `/ur hub` prints what is registered.
 
+**Auto Macro**: Five account macros that always use the best of what you carry. **UR Heal** is one key for a bad moment: pressed again and again it goes through your class's own self-heals, then a Healthstone, then your best healing potion, and starts over when combat ends. **UR Mana**, **UR Food**, **UR Drink** and **UR Bandage** use the best mana potion, food, drink and bandage in your bags. Best means the highest item level you are allowed to use; food with Well Fed comes before conjured food, which comes before plain food, and conjured water before bought drinks. The macros are created once in the General tab and rewritten in place out of combat when your bags, spells or level change, so they stay on your bars. `/ur macrolist` shows what each one uses and why. English client only for the tooltip part.
+
 **Inventory Tracker**: Remembers gold, bag contents and bank contents for every character you log in with. Hovering an item shows which of your characters have it and whether it sits in their bags or bank, with a total across characters. `/ur inv` opens a window where you can browse each character's items, search by name, and see gold per character and in total. The All characters view shows each item once, with the counts added up and every holder named; hover the row for the breakdown. Bags and gold update live; the bank is read each time you open it, so a character's bank snapshot is from their last bank visit. Characters you no longer play can be removed with the **Forget character** button.
 
 **Playtime**: Remembers `/played` for every character you log in with and shows it in a window of its own: one bar per character in class color, longest first, the time at the end of each bar, and the total across all of them at the top. Hover a row for the time at the current level, the character's share and when it was last seen. The bar of the character you are on keeps growing while the window is open. The addon asks the client once a few seconds after login and keeps that one answer out of chat; a `/played` you type yourself prints as usual and updates the record. The record is brought up to date at logout and reload. `/ur played` or the Playtime row in the minimap button's menu opens the window, `/ur pt` prints diagnostics.
@@ -119,6 +121,8 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur rolltest` | Show a test loot roll with your current group |
 | `/ur fp` | Print flight path diagnostics for the open map |
 | `/ur fpreset` | Forget this character's known flight paths and sync again at a flight master |
+| `/ur macros` | Toggle Auto Macro (UR Heal, Mana, Food, Drink and Bandage) |
+| `/ur macrolist` | Print what each auto macro uses and why |
 | `/ur jd` | Print junk deleter diagnostics (free slots, cheapest junk, last trigger) |
 
 ## For other Ul addons: joining the minimap menu

@@ -6,12 +6,12 @@ local DEFAULTS = {
     junkdelete  = false,
     vendor      = true,
     vendorbags  = true,
-    groupinvite = true,
+    groupinvite = false,
     autoquest   = true,
     trainer     = true,
     trainerpreview = true,
-    cursor      = true,
-    windows     = true,
+    cursor      = false,
+    windows     = false,
     bagsort     = true,
     inventory   = true,
     playtime    = true,
@@ -25,6 +25,7 @@ local DEFAULTS = {
     minimap     = true,
     chatcopy    = true,
     darkmode    = false,
+    macros      = true,
 }
 
 local function InitDB()
@@ -33,7 +34,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" and k ~= "macroTargets" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end
@@ -180,6 +181,7 @@ local FEATURES = {
     { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click lists the inventory browser, the playtime window and the other Ul addons, right-click opens the options." },
     { key = "chatcopy",    group = "Interface", label = "Chat Copy",         desc = "A Copy button at the chat frame's corner opens the chat log in a window where the text can be selected and copied." },
     { key = "darkmode",    group = "Interface", label = "Dark Mode",         desc = "Turns Blizzard's frame borders dark grey; backgrounds, icons, portraits and bars are left alone. /ur shade sets how dark." },
+    { key = "macros",      group = "Items",     label = "Auto Macro",        desc = "UR Heal chains your self-heals, Healthstone and best healing potion; UR Mana, Food, Drink and Bandage use the best in your bags." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
     { key = "playtime",    group = "Items",     label = "Playtime",          desc = "Remembers /played for every character; /ur played opens a window with a bar per character and the total." },
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
@@ -208,6 +210,7 @@ local function PrintHelp()
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur zones: print the zone level ranges, colored for your level, and the zone maps the data does not know")
     print("  /ur jd: print junk deleter diagnostics")
+    print("  /ur macrolist: print what each auto macro uses and why")
     print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur rs: print what the reagent tooltip has learned from profession windows")
     print("  /ur rsreset: forget what the reagent tooltip learned in play")
@@ -244,6 +247,7 @@ local function NotifyModules()
     if UlRemedy.RefreshLootRolls then UlRemedy.RefreshLootRolls() end
     if UlRemedy.RefreshAuctionPrices then UlRemedy.RefreshAuctionPrices() end
     if UlRemedy.RefreshAuctionShare then UlRemedy.RefreshAuctionShare() end
+    if UlRemedy.RefreshAutoMacro then UlRemedy.RefreshAutoMacro() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -310,6 +314,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "zones" then
         if UlRemedy.ZoneLevelsDebug then UlRemedy.ZoneLevelsDebug() end
+        return
+    end
+    if cmd == "macrolist" then
+        if UlRemedy.MacroReport then UlRemedy.MacroReport() end
         return
     end
     if cmd == "jd" then

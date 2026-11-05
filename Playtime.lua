@@ -135,8 +135,20 @@ local function UnmuteChat()
     silent = false
 end
 
+-- Other addons ask for /played at login too (MyCharForever and RXPGuides
+-- do), and every answer is printed by the chat frames, so the chat is muted
+-- from login until our own answer has come, and an answer that arrives
+-- before our request went out is recorded without lifting the mute.
+local function MuteForLogin()
+    silent = true
+    MuteChat()
+end
+
 local function Request()
-    if type(RequestTimePlayed) ~= "function" then return end
+    if type(RequestTimePlayed) ~= "function" then
+        UnmuteChat()
+        return
+    end
     requested = true
     silent = true
     MuteChat()
@@ -150,7 +162,7 @@ local RefreshWindow
 
 local function OnTimePlayed(total, levelTime)
     lastEvent = time()
-    if silent then
+    if silent and requested then
         -- Not during this dispatch: a frame registered now might still be
         -- handed the event we are hiding.
         C_Timer.After(0, UnmuteChat)
@@ -447,7 +459,10 @@ frame:SetScript("OnEvent", function(self, event, arg1, arg2)
         self:UnregisterEvent("ADDON_LOADED")
     elseif event == "PLAYER_LOGIN" then
         InitCharacter()
-        if Enabled() then C_Timer.After(LOGIN_DELAY, Request) end
+        if Enabled() then
+            MuteForLogin()
+            C_Timer.After(LOGIN_DELAY, Request)
+        end
     elseif event == "PLAYER_LOGOUT" then
         Settle()
     elseif event == "TIME_PLAYED_MSG" then

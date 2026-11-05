@@ -317,11 +317,19 @@ local function ReshowCollateral()
     end
 end
 
+local deferred = false         -- a protected panel appeared in combat; set up after it
+
 local function SetupPanel(name)
     if handled[name] or EXCLUDE[name] then return end
     local frame = _G[name]
     if type(frame) ~= "table" or type(frame.GetObjectType) ~= "function" then return end
     if frame:GetObjectType() ~= "Frame" then return end
+    -- A protected panel loaded in combat (the professions window, for one)
+    -- refuses every call below until combat ends; leave it for then.
+    if not CanTouch(frame) then
+        deferred = true
+        return
+    end
     handled[name] = true
     local ok, err = pcall(SetupPanelUnsafe, name, frame)
     if not ok then Report(name, err) end
@@ -621,8 +629,14 @@ end
 local frame = CreateFrame("Frame", "UlRemedyMovableWindowsFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:SetScript("OnEvent", function(self, event, arg1)
-    if event == "ADDON_LOADED" then
+    if event == "PLAYER_REGEN_ENABLED" then
+        if deferred then
+            deferred = false
+            UlRemedy.RefreshMovableWindows()
+        end
+    elseif event == "ADDON_LOADED" then
         if arg1 == UlRemedy.name then
             InitDB()
         elseif db then

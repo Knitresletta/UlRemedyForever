@@ -37,6 +37,10 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Trainer Preview**: What your class trainer has for you, without walking there. The list is learned on each visit to your class trainer (every ability and rank with its level and price, remembered per class across your characters), so visit the trainer once and it is filled in. A **Trainer** tab in the spellbook, to the right of Blizzard's own tabs, shows what is available now with the total price, and what is coming up at which level. Hovering a line shows the spell's tooltip. On level up a chat line names the abilities that just became available and what they cost in total. Ranks you have replaced with a higher rank do not count as missing. A visit only adds to the list, it never shrinks it. Beast Training shares the trainer window and is left alone (Train All is hidden there too; the client blocks it), and a pet trainer's wares are filtered out by name. `/ur tp` prints diagnostics, `/ur tpreset` forgets the list for the current class.
 
+**Fishing Key**: One key for the whole catch. Set it under Keybindings > AddOns > UlRemedyForever. Without a fishing pole in hand it equips the best pole in your bags (highest item level); with the pole in hand and no bobber in the water it casts Fishing; while your bobber is the soft interact target (face it with the camera) the same key is Interact and takes the catch. The hook rides on the client's own soft targeting, which is off for keyboard and mouse and ten yards short by default: while Fishing is being channeled the module turns it on with thirty yards of reach, and restores the previous values when the channel ends (also after a reload mid-cast). The catch is never hooked for you; you press the key when the bobber splashes, and the weapons the pole replaced are yours to put back. `/ur fish` prints diagnostics.
+
+**Fishing Sound** (off by default): While the line is out, music and ambience are muted and sound effects turned up so the splash stands out. Restored when the channel ends.
+
 **Cursor Ring**: A dusty purple ring with a soft silver glow that follows your mouse cursor, visible on light and dark backgrounds alike.
 
 **Movable Windows**: The standard Blizzard windows (character, spellbook, talents, quest log, friends, guild, trainer, merchant, mail, bank, professions, and any other window Blizzard registers as a panel) and every bag can be dragged anywhere, overlap each other, and come back where you left them the next time they open. Click a window to bring it in front. The world map is included. The spellbook and talent window (one window on this client) is the exception: it stays under Blizzard's control, because detaching it breaks its cooldown display, but it can still be dragged and comes back where you left it, and windows it closes on opening are reopened. Escape still closes them. Positions are shared across your characters. `/ur winreset` forgets all saved positions; turning the feature off takes full effect after `/reload`. If your action bars ever vanish in combat, turn it off with `/ur windows` and `/reload`, and please report it.
@@ -124,6 +128,9 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur macros` | Toggle Auto Macro (UR Heal, Mana, Food, Drink and Bandage) |
 | `/ur macrolist` | Print what each auto macro uses and why |
 | `/ur jd` | Print junk deleter diagnostics (free slots, cheapest junk, last trigger) |
+| `/ur fishing` | Toggle the fishing key (equip the pole, cast, then hook via soft target) |
+| `/ur fishsound` | Toggle muting music and ambience while the line is out |
+| `/ur fish` | Print fishing diagnostics (key, soft target, settings to restore) |
 
 ## For other Ul addons: joining the minimap menu
 

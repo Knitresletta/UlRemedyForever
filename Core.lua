@@ -26,6 +26,8 @@ local DEFAULTS = {
     chatcopy    = true,
     darkmode    = false,
     macros      = true,
+    fishing     = true,
+    fishsound   = false,
 }
 
 local function InitDB()
@@ -34,7 +36,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" and k ~= "macroTargets" and k ~= "junkdeleteRoutes" then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" and k ~= "macroTargets" and k ~= "junkdeleteRoutes" and k ~= "fishingSaved" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end
@@ -187,11 +189,13 @@ local FEATURES = {
     { key = "reagents",    group = "Items",     label = "Reagent Tooltip",   desc = "Shows which professions use an item, learned from your profession windows." },
     { key = "auction",     group = "Items",     label = "Auction Prices",    desc = "Remembers prices seen at the auction house and shows them in tooltips." },
     { key = "auctionshare", group = "Items",    label = "Price Sharing",     desc = "Swaps auction prices with other UlRemedyForever users on your realm over a hidden chat channel." },
+    { key = "fishing",     group = "Fishing",   label = "Fishing Key",       desc = "One key equips the best fishing pole in your bags, casts the line and, while your bobber is the soft target, hooks the catch. Set the key under Keybindings > AddOns." },
+    { key = "fishsound",   group = "Fishing",   label = "Fishing Sound",     desc = "While the line is out, music and ambience are muted and effects turned up so the splash stands out. Off by default." },
     { key = "flightpaths", group = "Map",       label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
     { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
     { key = "zonelevels",  group = "Map",       label = "Zone Levels",       desc = "Level range and territory under the zone name on continent maps." },
 }
-UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Quests", "Interface", "Items", "Map" }
+UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Quests", "Interface", "Items", "Fishing", "Map" }
 UlRemedy.FEATURES = FEATURES
 
 local function PrintHelp()
@@ -210,6 +214,7 @@ local function PrintHelp()
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur zones: print the zone level ranges, colored for your level, and the zone maps the data does not know")
     print("  /ur jd: print junk deleter diagnostics")
+    print("  /ur fish: print fishing diagnostics (key, soft target, settings to restore)")
     print("  /ur macrolist: print what each auto macro uses and why")
     print("  /ur vendorreset: reset the vendor window to its default size")
     print("  /ur rs: print what the reagent tooltip has learned from profession windows")
@@ -248,6 +253,7 @@ local function NotifyModules()
     if UlRemedy.RefreshAuctionPrices then UlRemedy.RefreshAuctionPrices() end
     if UlRemedy.RefreshAuctionShare then UlRemedy.RefreshAuctionShare() end
     if UlRemedy.RefreshAutoMacro then UlRemedy.RefreshAutoMacro() end
+    if UlRemedy.RefreshFishing then UlRemedy.RefreshFishing() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -322,6 +328,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "jd" then
         if UlRemedy.JunkDeleterDebug then UlRemedy.JunkDeleterDebug() end
+        return
+    end
+    if cmd == "fish" then
+        if UlRemedy.FishingDebug then UlRemedy.FishingDebug() end
         return
     end
     if cmd == "vendorreset" then

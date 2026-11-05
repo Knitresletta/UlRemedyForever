@@ -34,7 +34,7 @@ local function InitDB()
         if UlRemedyForeverDB[k] == nil then UlRemedyForeverDB[k] = v end
     end
     for k in pairs(UlRemedyForeverDB) do
-        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" and k ~= "macroTargets" then UlRemedyForeverDB[k] = nil end
+        if DEFAULTS[k] == nil and k ~= "errors" and k ~= "minimapAngle" and k ~= "shade" and k ~= "macroTargets" and k ~= "junkdeleteRoutes" then UlRemedyForeverDB[k] = nil end
     end
     UlRemedy.enabled = UlRemedyForeverDB
 end

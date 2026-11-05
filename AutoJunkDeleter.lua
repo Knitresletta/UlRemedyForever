@@ -25,9 +25,11 @@
 -- silently refused. The order of attempts is therefore: cursor deletion
 -- (works from /ur junkdelete), then C_Item.DeleteItem by GUID, and if the
 -- client refuses both, a popup with a single Delete button, whose click is
--- a hardware event the client accepts. A refused route is not tried again
--- in the same session: every refusal is a blocked action behind the alert
--- icon in the AddOns list.
+-- a hardware event the client accepts. Every refusal is a blocked action
+-- behind the alert icon in the AddOns list, so a refused route is
+-- remembered in the saved variables for this client build and not tried
+-- again until the client is updated: the icon appears once per build, not
+-- once per session.
 
 local lastError
 local blockedUntil = 0      -- no new deletion before this time
@@ -101,6 +103,34 @@ local function SlotStillHolds(entry)
     return C_Container.GetContainerItemID(entry.bag, entry.slot) == entry.itemID
 end
 
+-- Which silent routes this client build has refused, kept in the saved
+-- variables (UlRemedyForeverDB.junkdeleteRoutes) so the refusal, and the
+-- alert icon it costs, happens once per client build rather than once per
+-- session. A new build starts over, in case Blizzard changes the rule.
+local function RememberedRoutes()
+    local db = UlRemedyForeverDB
+    if not db then return nil end
+    local build = select(2, GetBuildInfo())
+    local routes = db.junkdeleteRoutes
+    if type(routes) ~= "table" or routes.build ~= build then
+        routes = { build = build }
+        db.junkdeleteRoutes = routes
+    end
+    return routes
+end
+
+local function LoadRememberedRoutes()
+    local routes = RememberedRoutes()
+    if not routes then return end
+    if routes.cursor == false then cursorDeleteWorks = false end
+    if routes.guid == false then guidDeleteWorks = false end
+end
+
+local function RememberRefused(route)
+    local routes = RememberedRoutes()
+    if routes then routes[route] = false end
+end
+
 -- Deletion through the cursor. Returns true, or false and a reason; the
 -- reason "refused" means the client ignored DeleteCursorItem, which is what
 -- happens when the call is not user-initiated.
@@ -169,11 +199,12 @@ local function Prompt(entry)
 end
 
 -- Tries the silent routes first and falls back to the popup. Each route
--- is tried once per session: a refusal counts as a blocked action in the
--- AddOns list (the alert icon), and the client refuses the same route the
--- same way every time, so from the second full bag on the popup is used
--- straight away.
+-- is tried once per client build: a refusal counts as a blocked action in
+-- the AddOns list (the alert icon), and the client refuses the same route
+-- the same way every time, so from the second full bag on, and in every
+-- later session on this build, the popup is used straight away.
 local function Delete(entry)
+    LoadRememberedRoutes()
     if cursorDeleteWorks ~= false then
         local ok, err = DeleteViaCursor(entry)
         if ok then
@@ -187,6 +218,7 @@ local function Delete(entry)
             return
         end
         cursorDeleteWorks = false
+        RememberRefused("cursor")
     end
 
     if guidDeleteWorks ~= false and C_Item and C_Item.DeleteItem then
@@ -197,6 +229,7 @@ local function Delete(entry)
             C_Timer.After(0.6, function()
                 if SlotStillHolds(entry) then
                     guidDeleteWorks = false
+                    RememberRefused("guid")
                     Prompt(entry)
                 else
                     guidDeleteWorks = true
@@ -271,7 +304,10 @@ function UlRemedy.JunkDeleterDebug()
     print("  cheapest junk: " .. (entry and (entry.link .. " x" .. entry.count .. " = " .. UlRemedy.MoneyText(entry.value)) or "none"))
     print("  last event: " .. tostring(lastEvent) .. (lastEventAt and (" (" .. math.floor(GetTime() - lastEventAt) .. "s ago)") or ""))
     print("  last check: " .. tostring(lastResult) .. ", last error: " .. tostring(lastError))
-    print("  GUID deletion: " .. tostring(guidDeleteWorks) .. ", popup cancelled: " .. tostring(declined)
+    LoadRememberedRoutes()
+    print("  cursor deletion from events: " .. tostring(cursorDeleteWorks) .. ", GUID deletion: " .. tostring(guidDeleteWorks)
+        .. " (remembered for build " .. tostring(select(2, GetBuildInfo())) .. ")")
+    print("  popup cancelled: " .. tostring(declined)
         .. ", vendor open: " .. tostring((MerchantFrame and MerchantFrame:IsShown()) or false))
 end
 

@@ -17,7 +17,10 @@
 -- last session. Data lives in its own saved variable
 -- (UlRemedyForeverPlayedDB) so Core's settings pruning never touches it.
 -- Character keys are "Name-Realm", the same format as the inventory
--- tracker.
+-- tracker. Right-clicking a row in the window forgets that character
+-- (after a confirmation), for characters that are gone or belong to the
+-- beta; the character you are on cannot be forgotten, it would only be
+-- recorded again.
 
 local LOGIN_DELAY = 5          -- seconds after login before the silent request
 local SILENT_TIMEOUT = 15      -- give up suppressing if no answer comes
@@ -207,6 +210,24 @@ local function SortedChars()
     return list
 end
 
+-- Forgets one character's record. Never the current one: InitCharacter
+-- would just make a new record for it at the next login, and the live
+-- clock in this session points at the old table.
+local function ForgetCharacter(rec)
+    if not (DB and rec and rec.key) or rec == me then return end
+    local name = ColoredName(rec)
+    local function doForget()
+        DB.chars[rec.key] = nil
+        RefreshWindow()
+        print(UlRemedy.name .. ": forgot playtime for " .. name .. ".")
+    end
+    if StaticPopup_ShowGenericConfirmation then
+        StaticPopup_ShowGenericConfirmation("Forget the recorded playtime for " .. name .. " (" .. (rec.realm or "?") .. ")?", doForget)
+    else
+        doForget()
+    end
+end
+
 ------------------------------------------------------------------------
 -- Window
 ------------------------------------------------------------------------
@@ -245,6 +266,10 @@ local function RowTooltip(self)
             GameTooltip:AddDoubleLine("Last seen", date("%Y-%m-%d %H:%M", rec.at), 0.7, 0.7, 0.7, 0.7, 0.7, 0.7)
         end
     end
+    if rec ~= me then
+        GameTooltip:AddLine(" ")
+        GameTooltip:AddLine("Right-click to forget this character", 0.5, 0.5, 0.5)
+    end
     GameTooltip:Show()
 end
 
@@ -281,6 +306,12 @@ local function GetRow(i)
     row:EnableMouse(true)
     row:SetScript("OnEnter", RowTooltip)
     row:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    row:SetScript("OnMouseUp", function(self, button)
+        if button == "RightButton" then
+            GameTooltip:Hide()
+            ForgetCharacter(self.rec)
+        end
+    end)
 
     window.rows[i] = row
     return row
@@ -357,7 +388,7 @@ local function CreateWindow()
     f.footer:SetPoint("RIGHT", f, "RIGHT", -14, 0)
     f.footer:SetJustifyH("LEFT")
     f.footer:SetTextColor(0.6, 0.6, 0.6)
-    f.footer:SetText("+ counts up while you play. Hover a row for this level and share.")
+    f.footer:SetText("+ counts up while you play. Hover a row for this level and share, right-click it to forget that character.")
 
     f:SetScript("OnShow", function(self)
         RefreshWindow()

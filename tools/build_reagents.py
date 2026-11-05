@@ -12,7 +12,7 @@ ships a static table generated from game data. Two sources are supported:
 
 Usage:
     python3 tools/build_reagents.py --vmangos /path/mangos.sqlite -o ReagentData.lua
-    python3 tools/build_reagents.py --wago /path/csvdir -o ReagentData.lua
+    python3 tools/build_reagents.py --wago /path/csvdir --build 1.60.1.70790 -o ReagentData.lua
 
 Only the professions in PROFESSIONS are included. Smelting spells belong to
 Mining, so ore shows "Mining" next to the crafting professions that use the
@@ -20,6 +20,7 @@ bars. Reagent counts are not kept: the tooltip only says who uses the item.
 """
 
 import argparse
+import datetime
 import csv
 import sqlite3
 import sys
@@ -146,11 +147,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--vmangos", help="path to mangos.sqlite")
     parser.add_argument("--wago", help="directory with wago.tools CSV exports")
+    parser.add_argument("--build", help="client build the wago exports were taken from, e.g. 1.60.1.70790")
     parser.add_argument("-o", "--out", default="ReagentData.lua")
     args = parser.parse_args()
     if args.wago:
         items, names = read_wago(args.wago)
-        source = f"wago.tools CSV exports ({args.wago})"
+        build = args.build or "unknown build"
+        source = f"wago.tools DB2 exports, Forever client build {build}, fetched {datetime.date.today().isoformat()}"
     elif args.vmangos:
         items, names = read_vmangos(args.vmangos)
         source = "vmangos world database (vanilla 1.12, build 5875)"

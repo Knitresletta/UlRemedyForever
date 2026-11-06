@@ -290,6 +290,22 @@ function UlRemedyFlightPinMixin:OnLoad()
     self:UseFrameLevelType("PIN_FRAME_LEVEL_FLIGHT_POINT")
 end
 
+-- AcquirePin ends with CheckMouseButtonPassthrough, which calls the
+-- protected SetPassThroughButtons: from an addon in combat the client
+-- refuses it (ADDON_ACTION_BLOCKED, 52 of them when the map changed
+-- mid-fight on 06.11.2026). The answer is the same for every pin of this
+-- template (the right button passes through to the map), so a pin taken
+-- in combat keeps what it has, and the map is refreshed once combat ends.
+local acquiredInCombat = false
+
+function UlRemedyFlightPinMixin:CheckMouseButtonPassthrough(...)
+    if InCombatLockdown() then
+        acquiredInCombat = true
+        return
+    end
+    MapCanvasPinMixin.CheckMouseButtonPassthrough(self, ...)
+end
+
 function UlRemedyFlightPinMixin:OnAcquired(entry, discovered)
     self.entry = entry
     self.discovered = discovered
@@ -500,6 +516,7 @@ local frame = CreateFrame("Frame", "UlRemedyFlightFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("TAXIMAP_OPENED")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:SetScript("OnEvent", function(self, event, arg1)
     if event == "ADDON_LOADED" then
         if arg1 == UlRemedy.name then
@@ -521,5 +538,10 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         InstallProvider()
     elseif event == "TAXIMAP_OPENED" then
         RecordKnownNodes()
+    elseif event == "PLAYER_REGEN_ENABLED" then
+        if acquiredInCombat then
+            acquiredInCombat = false
+            UlRemedy.RefreshFlightPaths()
+        end
     end
 end)

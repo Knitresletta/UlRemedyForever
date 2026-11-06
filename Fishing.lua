@@ -7,6 +7,9 @@
 -- plain click on a secure button that casts Fishing; while your bobber is
 -- the soft interact target the same key is rebound (override binding) to
 -- Interact, and the override is dropped again when the bobber is gone.
+-- On Forever the soft interact unit's GUID can be a secret value; then
+-- whatever the client has picked while the line is out counts as the
+-- bobber, which is what the Interact key would act on anyway.
 -- Without a fishing pole in hand the button's macro is "/equip <best pole
 -- in your bags>" instead of the cast, so the first press equips and the
 -- next one casts; the macro is rewritten out of combat whenever your
@@ -51,9 +54,16 @@ local overrideOn = false
 local pollTicker
 local lastEvent = "none"
 local keyMeans = "cast"                 -- what the button's macro does right now
+local guidState = "none"                -- what the last soft interact GUID looked like, for /ur fish
 
 local function Enabled(key)
     return UlRemedy.enabled and UlRemedy.enabled[key]
+end
+
+-- A secret value cannot be turned into a string, not even by tostring.
+local function Plain(v)
+    if issecretvalue and issecretvalue(v) then return "<secret>" end
+    return tostring(v)
 end
 
 local function SpellName(id)
@@ -123,9 +133,22 @@ end
 -- Soft target and the key override
 ------------------------------------------------------------------------
 
+-- Whether the soft interact target is your bobber. The GUID came back as
+-- a secret value on every poll of a session on 06.11.2026 (strsplit on it
+-- throws, 228 errors in two minutes), so a secret GUID is read as "the
+-- client has picked something": while Fishing is channeled that is taken
+-- to be the bobber, and the key then does what Interact would do.
 local function BobberTargeted()
     local guid = UnitGUID("softinteract")
-    if not guid then return false end
+    if issecretvalue and issecretvalue(guid) then
+        guidState = "secret, taken as the bobber while channeling"
+        return channeling
+    end
+    if not guid then
+        guidState = "none"
+        return false
+    end
+    guidState = "plain"
     local kind, _, _, _, _, id = strsplit("-", guid)
     return kind == "GameObject" and tonumber(id) == BOBBER_ID
 end
@@ -260,8 +283,9 @@ function UlRemedy.FishingDebug()
         .. ", sound " .. (Enabled("fishsound") and "on" or "off"))
     print("  key: " .. (#keys > 0 and table.concat(keys, ", ") or "none (set one under Keybindings > AddOns > UlRemedyForever)"))
     print("  spell: " .. tostring(fishingName) .. ", channeling: " .. tostring(channeling) .. ", last event: " .. lastEvent)
-    print("  soft interact: " .. tostring(UnitName("softinteract")) .. " " .. tostring(UnitGUID("softinteract"))
-        .. (BobberTargeted() and " (bobber)" or ""))
+    local bobber = BobberTargeted()
+    print("  soft interact: " .. Plain(UnitName("softinteract")) .. " " .. Plain(UnitGUID("softinteract"))
+        .. " (guid " .. guidState .. (bobber and ", bobber)" or ")"))
     print("  key means: " .. (overrideOn and "Interact (hook)" or keyMeans))
     print("  pole in hand: " .. tostring(IsPole(GetInventoryItemID("player", MAIN_HAND))) .. ", best pole in bags: " .. tostring(BestPole()))
     print("  SoftTargetInteract=" .. tostring(GetCVar("SoftTargetInteract"))

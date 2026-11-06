@@ -2,16 +2,16 @@
 """Build ReagentData.lua: which professions use an item as a reagent.
 
 The game client cannot be asked which recipes use an item, so the addon
-ships a static table generated from game data. Two sources are supported:
+ships a static table generated from the Forever client's own data:
 
   --wago DIR     CSV exports from wago.tools for the Forever build
-                 (SkillLine.csv, SkillLineAbility.csv, SpellReagents.csv).
-                 Preferred: it is the client's own data, new recipes included.
-  --vmangos DB   The vmangos world database as SQLite (mangos.sqlite from the
-                 db-sqlite release zip). Vanilla 1.12 only, no Forever recipes.
+                 (SkillLine.csv, SkillLineAbility.csv, SpellReagents.csv),
+                 see https://wago.tools/db2/<Table>/csv?build=<build>.
+
+Forever sources only (Jonatan, 06.11.2026); the vanilla database path was
+removed, its recipes are not Forever's.
 
 Usage:
-    python3 tools/build_reagents.py --vmangos /path/mangos.sqlite -o ReagentData.lua
     python3 tools/build_reagents.py --wago /path/csvdir --build 1.60.1.70790 -o ReagentData.lua
 
 Only the professions in PROFESSIONS are included. Smelting spells belong to
@@ -22,7 +22,6 @@ bars. Reagent counts are not kept: the tooltip only says who uses the item.
 import argparse
 import datetime
 import csv
-import sqlite3
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -42,42 +41,6 @@ PROFESSIONS = [
 ]
 ORDER = {skill: i for i, (skill, _) in enumerate(PROFESSIONS)}
 NAME = dict(PROFESSIONS)
-
-
-def read_vmangos(path, build=5875):
-    """Return (item -> set of skill IDs, item -> name) from the vmangos DB."""
-    conn = sqlite3.connect(path)
-    # Several rows per spell exist, one per client build that changed it.
-    # Keep the newest row that is not newer than the requested build.
-    spells = {}
-    rows = conn.execute(
-        "select entry, build, reagent1, reagent2, reagent3, reagent4, "
-        "reagent5, reagent6, reagent7, reagent8 from spell_template "
-        "where build <= ? order by entry, build", (build,))
-    for row in rows:
-        spells[row[0]] = [r for r in row[2:] if r and r > 0]
-
-    # skill_line_ability is a full snapshot per build (about 5000 rows each),
-    # so only the newest snapshot counts; older ones hold removed recipes.
-    snapshot = conn.execute(
-        "select max(build) from skill_line_ability where build <= ?", (build,)).fetchone()[0]
-    skill_spells = defaultdict(set)
-    rows = conn.execute(
-        "select spell_id, skill_id from skill_line_ability where build = ?", (snapshot,))
-    for spell_id, skill_id in rows:
-        skill_spells[skill_id].add(spell_id)
-
-    items = defaultdict(set)
-    for skill_id, _ in PROFESSIONS:
-        for spell_id in skill_spells.get(skill_id, ()):
-            for item in spells.get(spell_id, ()):
-                items[item].add(skill_id)
-
-    names = {}
-    rows = conn.execute("select entry, name, patch from item_template order by entry, patch")
-    for entry, name, _ in rows:
-        names[entry] = name
-    return items, names
 
 
 def find_column(fieldnames, *candidates):
@@ -145,7 +108,6 @@ def write_lua(items, names, out, source):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--vmangos", help="path to mangos.sqlite")
     parser.add_argument("--wago", help="directory with wago.tools CSV exports")
     parser.add_argument("--build", help="client build the wago exports were taken from, e.g. 1.60.1.70790")
     parser.add_argument("-o", "--out", default="ReagentData.lua")
@@ -154,11 +116,8 @@ def main():
         items, names = read_wago(args.wago)
         build = args.build or "unknown build"
         source = f"wago.tools DB2 exports, Forever client build {build}, fetched {datetime.date.today().isoformat()}"
-    elif args.vmangos:
-        items, names = read_vmangos(args.vmangos)
-        source = "vmangos world database (vanilla 1.12, build 5875)"
     else:
-        parser.error("give --wago DIR or --vmangos DB")
+        parser.error("give --wago DIR")
     count = write_lua(items, names, args.out, source)
     print(f"wrote {args.out}: {count} reagent items")
     return 0

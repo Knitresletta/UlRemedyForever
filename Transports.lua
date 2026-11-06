@@ -77,6 +77,20 @@ function UlRemedyTransportPinMixin:OnLoad()
     self:UseFrameLevelType("PIN_FRAME_LEVEL_FLIGHT_POINT")
 end
 
+-- Same as in FlightPaths: AcquirePin calls the protected
+-- SetPassThroughButtons through CheckMouseButtonPassthrough, and the
+-- client refuses that from an addon in combat (6 blocked when the map was
+-- opened mid-fight, 06.11.2026). Skip it in combat and refresh afterwards.
+local acquiredInCombat = false
+
+function UlRemedyTransportPinMixin:CheckMouseButtonPassthrough(...)
+    if InCombatLockdown() then
+        acquiredInCombat = true
+        return
+    end
+    MapCanvasPinMixin.CheckMouseButtonPassthrough(self, ...)
+end
+
 function UlRemedyTransportPinMixin:OnAcquired(entry)
     self.entry = entry
     local kind = KIND[entry.node.kind] or KIND.boat
@@ -160,7 +174,15 @@ end
 local frame = CreateFrame("Frame", "UlRemedyTransportFrame")
 frame:RegisterEvent("ADDON_LOADED")
 frame:RegisterEvent("PLAYER_LOGIN")
+frame:RegisterEvent("PLAYER_REGEN_ENABLED")
 frame:SetScript("OnEvent", function(self, event)
+    if event == "PLAYER_REGEN_ENABLED" then
+        if acquiredInCombat then
+            acquiredInCombat = false
+            UlRemedy.RefreshTransports()
+        end
+        return
+    end
     InstallProvider()
     if provider then
         self:UnregisterEvent("ADDON_LOADED")

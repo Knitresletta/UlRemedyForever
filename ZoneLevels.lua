@@ -50,6 +50,8 @@ local function LevelFit(levels, playerLevel)
     return "outgrown", 0.5, 0.5, 0.5
 end
 
+UlRemedy.LevelFit = LevelFit  -- shared with Dungeon Entrances
+
 local function RangeText(levels)
     if levels[1] == levels[2] then return "Level " .. levels[1] end
     return "Level " .. levels[1] .. "-" .. levels[2]

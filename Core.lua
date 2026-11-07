@@ -21,6 +21,7 @@ local DEFAULTS = {
     flightpaths = true,
     transports  = true,
     zonelevels  = true,
+    dungeons    = true,
     rolls       = true,
     minimap     = true,
     chatcopy    = true,
@@ -96,16 +97,18 @@ end
 -- a protected call made from tainted code, fires ADDON_ACTION_BLOCKED (or
 -- _FORBIDDEN) with the addon and function name, and the AddOns list shows
 -- an alert icon with the count. Nothing reaches the error frame. Keep a
--- count per function and the stack of the first time each was seen; the
--- event fires inside the refused call, so the stack names our call site.
-local blocked = {}        -- functionName -> { count, kind, stack, last }
+-- count per addon and function and the stack of the first time each was
+-- seen; the event fires inside the refused call, so the stack names the
+-- call site. Every addon is logged (since 1.22.6), so the sibling addons'
+-- blocked actions (UlSource, UlDungeonCompanion) land in this log too.
+local blocked = {}        -- "addon: function" -> { addon, func, count, kind, stack, last }
 
 local function NoteBlocked(kind, addonName, functionName)
-    if addonName ~= UlRemedy.name then return end
-    local key = tostring(functionName or "?")
+    local addon = tostring(addonName or "?")
+    local key = addon .. ": " .. tostring(functionName or "?")
     local rec = blocked[key]
     if not rec then
-        rec = { count = 0, kind = kind, stack = Clip(debugstack(3, 12, 0), 1200) }
+        rec = { addon = addon, count = 0, kind = kind, stack = Clip(debugstack(3, 12, 0), 1200) }
         blocked[key] = rec
     end
     rec.count = rec.count + 1
@@ -133,7 +136,7 @@ function UlRemedy.DumpErrors(announce)
     end
     local blockedList, blockedTotal = {}, 0
     for fn, rec in pairs(blocked) do
-        blockedList[#blockedList + 1] = { func = fn, count = rec.count, kind = rec.kind, last = rec.last, stack = rec.stack }
+        blockedList[#blockedList + 1] = { func = fn, addon = rec.addon, count = rec.count, kind = rec.kind, last = rec.last, stack = rec.stack }
         blockedTotal = blockedTotal + rec.count
     end
     table.sort(blockedList, function(a, b) return a.count > b.count end)
@@ -194,6 +197,7 @@ local FEATURES = {
     { key = "flightpaths", group = "Map",       label = "Flight Paths",      desc = "Every flight master on the world map, undiscovered ones in red." },
     { key = "transports",  group = "Map",       label = "Transports",        desc = "Boats, zeppelins, the tram and portals on the world map." },
     { key = "zonelevels",  group = "Map",       label = "Zone Levels",       desc = "Level range and territory under the zone name on continent maps." },
+    { key = "dungeons",    group = "Map",       label = "Dungeon Entrances", desc = "Every dungeon and raid entrance on the world map, with Forever's level range in the tooltip colored for your level." },
 }
 UlRemedy.FEATURE_GROUPS = { "Vendor", "Group", "Quests", "Interface", "Items", "Fishing", "Map" }
 UlRemedy.FEATURES = FEATURES
@@ -213,6 +217,8 @@ local function PrintHelp()
     print("  /ur fp: print flight path map diagnostics for the current map")
     print("  /ur fpreset: forget this character's known flight paths and sync again")
     print("  /ur zones: print the zone level ranges, colored for your level, and the zone maps the data does not know")
+    print("  /ur dungeons: print every dungeon and raid with its Forever level range, colored for your level")
+    print("  /ur dpins: print dungeon entrance pin diagnostics for the current map")
     print("  /ur jd: print junk deleter diagnostics")
     print("  /ur fish: print fishing diagnostics (key, soft target, settings to restore)")
     print("  /ur macrolist: print what each auto macro uses and why")
@@ -247,6 +253,7 @@ local function NotifyModules()
     if UlRemedy.RefreshFlightPaths then UlRemedy.RefreshFlightPaths() end
     if UlRemedy.RefreshTransports then UlRemedy.RefreshTransports() end
     if UlRemedy.RefreshZoneLevels then UlRemedy.RefreshZoneLevels() end
+    if UlRemedy.RefreshDungeonEntrances then UlRemedy.RefreshDungeonEntrances() end
     if UlRemedy.CheckJunkDeleter then UlRemedy.CheckJunkDeleter() end
     if UlRemedy.RefreshVendor then UlRemedy.RefreshVendor() end
     if UlRemedy.RefreshLootRolls then UlRemedy.RefreshLootRolls() end
@@ -320,6 +327,14 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "zones" then
         if UlRemedy.ZoneLevelsDebug then UlRemedy.ZoneLevelsDebug() end
+        return
+    end
+    if cmd == "dungeons" then
+        if UlRemedy.PrintDungeonList then UlRemedy.PrintDungeonList() end
+        return
+    end
+    if cmd == "dpins" then
+        if UlRemedy.DungeonEntrancesDebug then UlRemedy.DungeonEntrancesDebug() end
         return
     end
     if cmd == "macrolist" then

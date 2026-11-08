@@ -43,9 +43,21 @@
 --
 -- Blizzard_PlayerSpells is load-on-demand, so the tab is built when that
 -- addon loads, or at login if it is already there.
+--
+-- A catalog sits beside the remembered list (TrainerData.lua, generated
+-- from ForeverChanges' spellbook pages by tools/build_trainer_data.py):
+-- the level of every rank of every spell a trainer teaches, per class.
+-- It fills "coming up" before the first trainer visit, numbers the ranks
+-- (the trainer's order alone miscounts when rank 1 comes from a talent or
+-- is a starting spell), and tells a class spell from anything else the
+-- trainer window holds: lines the catalog does not know are shown with a
+-- marker, lines without a level requirement outside the learned category
+-- are not class spells at all (recipes, items) and are not kept. The
+-- catalog never says what is for sale or learned, or what it costs; the
+-- trainer does (08.11.2026).
 
 local ROW_H = 22
-local DB_VERSION = 5 -- 2: keyed by name and level (1 keyed by spell ID, which Forever does not give); 3: no records at level 0; 4: learned marks redone; 5: pet abilities dropped
+local DB_VERSION = 6 -- 2: keyed by name and level (1 keyed by spell ID, which Forever does not give); 3: no records at level 0; 4: learned marks redone; 5: pet abilities dropped; 6: level-0 lines outside "used" (recipes, items) dropped
 
 -- What pet trainer NPCs sell, for gold, to teach a pet: not the player's
 -- abilities, though they come through the same trainer window, and on
@@ -103,7 +115,8 @@ local function InitDB()
         -- Version 3 marked the wrong records as learned from them. Drop
         -- the level-0 records and the marks; the next trainer visit sets
         -- the marks again, the right way. Version 4 filed a pet trainer's
-        -- wares under the class; those go too.
+        -- wares under the class; those go too. Version 5 kept recipes and
+        -- items a class trainer listed (available, level 0): same rule.
         for _, list in pairs(db.classes or {}) do
             for key, rec in pairs(list.spells or {}) do
                 if (rec.level or 0) == 0 or PET_ABILITIES[rec.name] then
@@ -129,6 +142,30 @@ local function ClassList(create)
     local key = ClassKey()
     if not db.classes[key] and create then db.classes[key] = { spells = {} } end
     return db.classes[key]
+end
+
+-- ForeverChanges' spellbook for the class (TrainerData.lua): for each
+-- spell name a list of levels, one per rank. Nil when the class is not in
+-- it. Prices and learned state never come from here.
+local function Catalog()
+    local data = UlRemedy.TrainerData
+    return data and data.classes and data.classes[ClassKey()] or nil
+end
+
+local function CatalogBuild()
+    local data = UlRemedy.TrainerData
+    return data and data.build or "?"
+end
+
+-- The rank the catalog gives a name at a level, or nil when it does not
+-- know the name or lists no rank at that level.
+local function CatalogRank(catalog, name, level)
+    local levels = catalog and catalog[name]
+    if not levels then return nil end
+    for i, l in ipairs(levels) do
+        if l == level then return i end
+    end
+    return nil
 end
 
 -- The highest rank of each spell the spellbook holds, by name. Forever's
@@ -168,8 +205,15 @@ end
 -- unlearned ranks are numbered from the largest of those up. Sets
 -- rec.rankNo and rec.rankOf on every record. Clients that give rank text
 -- keep it in rec.rank.
+--
+-- Where the catalog knows the name and has a rank at every level the
+-- trainer listed, its numbering wins: it counts the ranks the trainer
+-- never lists (starting spells, a rank 1 from a talent). A name the
+-- catalog does not know is marked (rec.offCatalog) and numbered the
+-- derived way.
 local function AssignRanks(list)
     local known = SpellbookRanks()
+    local catalog = Catalog()
     local byName = {}
     for _, rec in pairs(list.spells) do
         byName[rec.name] = byName[rec.name] or {}
@@ -177,20 +221,34 @@ local function AssignRanks(list)
     end
     for name, recs in pairs(byName) do
         table.sort(recs, function(a, b) return (a.level or 0) < (b.level or 0) end)
+        local levels = catalog and catalog[name]
+        local fromCatalog = levels ~= nil
+        for _, rec in ipairs(recs) do
+            rec.offCatalog = (catalog ~= nil and levels == nil) or nil
+            if fromCatalog and not CatalogRank(catalog, name, rec.level or 0) then fromCatalog = false end
+        end
+        if fromCatalog then
+            for _, rec in ipairs(recs) do
+                rec.rankNo = CatalogRank(catalog, name, rec.level or 0)
+                rec.rankOf = #levels
+            end
+        end
         local learnedRecs = 0
         for _, rec in ipairs(recs) do if rec.usedSeen then learnedRecs = learnedRecs + 1 end end
         local learned = math.max(learnedRecs, list.learned and list.learned[name] or 0, known[name] or 0)
         local unlearned = #recs - learnedRecs
         local i, j = 0, 0
         for _, rec in ipairs(recs) do
-            if rec.usedSeen then
-                i = i + 1
-                rec.rankNo = i
-            else
-                j = j + 1
-                rec.rankNo = learned + j
+            if not fromCatalog then
+                if rec.usedSeen then
+                    i = i + 1
+                    rec.rankNo = i
+                else
+                    j = j + 1
+                    rec.rankNo = learned + j
+                end
+                rec.rankOf = learned + unlearned
             end
-            rec.rankOf = learned + unlearned
         end
     end
 end
@@ -212,29 +270,62 @@ local function SpellKnownNow(rec)
 end
 
 -- Returns available (level reached, not known), upcoming (level not
--- reached, not known), both sorted by level then name, and the class list.
+-- reached, not known), both sorted by level then name, and the class list
+-- (nil before the first trainer visit; upcoming then comes from the
+-- catalog alone).
 local function Compute(level)
     local available, upcoming = {}, {}
     local list = ClassList(false)
-    if not list then return available, upcoming, nil end
-    AssignRanks(list)
+    local spells = list and list.spells or {}
+    if list then AssignRanks(list) end
 
     -- Highest level at which a service of each name is known. Learning a
     -- rank makes every lower rank of the same name moot.
     local knownUpTo = {}
-    for _, rec in pairs(list.spells) do
+    for _, rec in pairs(spells) do
         if SpellKnownNow(rec) or rec.usedSeen then
             local l = rec.level or 0
             if (knownUpTo[rec.name] or -1) < l then knownUpTo[rec.name] = l end
         end
     end
-    for _, rec in pairs(list.spells) do
+    for _, rec in pairs(spells) do
         local known = knownUpTo[rec.name] ~= nil and (rec.level or 0) <= knownUpTo[rec.name]
         if not known then
             if (rec.level or 0) <= level then
                 available[#available + 1] = rec
             else
                 upcoming[#upcoming + 1] = rec
+            end
+        end
+    end
+
+    -- Ranks above the player's level that no remembered line covers come
+    -- from the catalog, so "coming up" is there before the first trainer
+    -- visit and for ranks a visit missed. Ranks at or below the player's
+    -- level are the trainer's alone: whether they are learned, and what
+    -- they cost, is only known from a visit. Rank 1 of a talent spell comes
+    -- with the talent point, not from a trainer, and is left out.
+    local catalog = Catalog()
+    if catalog then
+        local covered, knownRank = {}, {}
+        for _, rec in pairs(spells) do
+            if rec.rankNo then
+                covered[rec.name] = covered[rec.name] or {}
+                covered[rec.name][rec.rankNo] = true
+                if (SpellKnownNow(rec) or rec.usedSeen) and (knownRank[rec.name] or 0) < rec.rankNo then
+                    knownRank[rec.name] = rec.rankNo
+                end
+            end
+        end
+        local spellbook = SpellbookRanks()
+        for name, levels in pairs(catalog) do
+            local known = math.max(knownRank[name] or 0, spellbook[name] or 0,
+                list and list.learned and list.learned[name] or 0)
+            for i, l in ipairs(levels) do
+                if l > level and i > known and not (covered[name] and covered[name][i])
+                    and not (levels.talent and i == 1) then
+                    upcoming[#upcoming + 1] = { name = name, level = l, rankNo = i, rankOf = #levels, catalog = true }
+                end
             end
         end
     end
@@ -340,7 +431,13 @@ local function ScanTrainerUnsafe()
                 local spellID = GetTrainerServiceItemLink and SpellIDFromLink(GetTrainerServiceItemLink(i))
                 local icon = GetTrainerServiceIcon and GetTrainerServiceIcon(i)
                 seen = seen + 1
-                if category == "used" and (level or 0) == 0 then
+                if (level or 0) == 0 and category ~= "used" then
+                    -- No level requirement and not learned: a recipe or an
+                    -- item, not a class spell (every class spell has a
+                    -- level). A class trainer lists those too on Forever
+                    -- (Discolored Healing Potions at Loganaar, 08.11.2026).
+                    -- Not kept.
+                elseif category == "used" and (level or 0) == 0 then
                     -- A learned line without its level requirement cannot
                     -- be keyed (Forever lists learned services this way).
                     -- Counted per name and settled below.
@@ -482,11 +579,20 @@ local function InitRow(button, data)
         hl:SetColorTexture(1, 1, 1, 0.08)
         button:SetScript("OnEnter", function(self)
             local rec = self.data and self.data.rec
-            if rec and rec.spellID and GameTooltip.SetSpellByID then
-                GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if not rec then return end
+            GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+            if rec.spellID and GameTooltip.SetSpellByID then
                 GameTooltip:SetSpellByID(rec.spellID)
-                GameTooltip:Show()
+            else
+                GameTooltip:SetText(Label(rec))
             end
+            if rec.catalog then
+                GameTooltip:AddLine("Level from ForeverChanges (build " .. CatalogBuild()
+                    .. "). Visit your class trainer for the price.", 0.6, 0.6, 0.6, true)
+            elseif rec.offCatalog then
+                GameTooltip:AddLine("Not in ForeverChanges' spellbook for your class, but your trainer listed it.", 1, 0.55, 0, true)
+            end
+            GameTooltip:Show()
         end)
         button:SetScript("OnLeave", function() GameTooltip:Hide() end)
     end
@@ -503,11 +609,15 @@ local function InitRow(button, data)
         button.cost:SetText("")
     else
         local rec = data.rec
-        button.icon:Show()
-        button.icon:SetTexture(rec.icon or 134400)
-        button.name:SetText(Label(rec))
+        if rec.icon then
+            button.icon:Show()
+            button.icon:SetTexture(rec.icon)
+        else
+            button.icon:Hide() -- a catalog line has no icon until the trainer shows it
+        end
+        button.name:SetText(Label(rec) .. (rec.offCatalog and " |cffff8c00*|r" or ""))
         button.level:SetText(data.dim and ("|cff999999Level " .. (rec.level or 0) .. "|r") or ("|cff00ff00Level " .. (rec.level or 0) .. "|r"))
-        button.cost:SetText(UlRemedy.MoneyText(rec.cost or 0))
+        button.cost:SetText(rec.catalog and "" or UlRemedy.MoneyText(rec.cost or 0))
     end
 end
 
@@ -515,7 +625,7 @@ local function BuildRows()
     local level = UnitLevel("player") or 1
     local available, upcoming, list = Compute(level)
     local rows = {}
-    if not list then
+    if not list and #upcoming == 0 then
         rows[#rows + 1] = { note = true, text = "No trainer visit recorded for this class yet." }
         rows[#rows + 1] = { note = true, text = "Open your class trainer once and the list fills in." }
         return rows, nil
@@ -524,13 +634,21 @@ local function BuildRows()
     for _, rec in ipairs(available) do total = total + (rec.cost or 0) end
     rows[#rows + 1] = { header = true, text = "Available now (level " .. level .. ")",
         right = #available > 0 and (UlRemedy.MoneyText(total) .. " in total") or "" }
-    if #available == 0 then
+    if not list then
+        rows[#rows + 1] = { note = true, text = "No trainer visit recorded for this class yet. Open your class trainer once for prices and what you have learned." }
+    elseif #available == 0 then
         rows[#rows + 1] = { note = true, text = "Nothing waiting. Everything up to your level is learned." }
     end
     for _, rec in ipairs(available) do rows[#rows + 1] = { rec = rec } end
     rows[#rows + 1] = { header = true, text = "Coming up" }
     if #upcoming == 0 then
         rows[#rows + 1] = { note = true, text = "Nothing more on the trainer's list." }
+    end
+    for _, rec in ipairs(upcoming) do
+        if rec.offCatalog then
+            rows[#rows + 1] = { note = true, text = "* listed by your trainer, not in ForeverChanges' spellbook for your class" }
+            break
+        end
     end
     for _, rec in ipairs(upcoming) do rows[#rows + 1] = { rec = rec, dim = true } end
     return rows, list
@@ -539,11 +657,12 @@ end
 local function RefreshPanel()
     if not panel or not panel:IsShown() then return end
     local rows, list = BuildRows()
+    local source = Catalog() and (" Levels from ForeverChanges, build " .. CatalogBuild() .. ".") or ""
     if list and list.lastVisit then
         panel.sub:SetText("From your trainer visit on " .. list.lastVisit
-            .. (list.trainer and (" (" .. list.trainer .. ")") or "") .. ". Visit again to pick up changes.")
+            .. (list.trainer and (" (" .. list.trainer .. ")") or "") .. ". Visit again to pick up changes." .. source)
     else
-        panel.sub:SetText("")
+        panel.sub:SetText(source)
     end
     local provider = CreateDataProvider(rows)
     panel.box:SetDataProvider(provider, true) -- true: keep the scroll position
@@ -701,6 +820,12 @@ function UlRemedy.TrainerPreviewDebug()
     Say(string.format("trainer preview for %s: %d services remembered, %d available now, %d coming up.",
         ClassKey(), count, #available, #upcoming))
     print("  last visit: " .. tostring(list and list.lastVisit) .. ", trainer: " .. tostring(list and list.trainer))
+    local catalog, catalogCount, offCatalog, fromCatalog = Catalog(), 0, 0, 0
+    if catalog then for _ in pairs(catalog) do catalogCount = catalogCount + 1 end end
+    if list then for _, rec in pairs(list.spells) do if rec.offCatalog then offCatalog = offCatalog + 1 end end end
+    for _, rec in ipairs(upcoming) do if rec.catalog then fromCatalog = fromCatalog + 1 end end
+    print(string.format("  catalog (ForeverChanges build %s): %d spells for %s, %d remembered lines not in it, %d coming-up lines from it alone",
+        CatalogBuild(), catalogCount, ClassKey(), offCatalog, fromCatalog))
     local names, ranked = 0, 0
     for _, r in pairs(SpellbookRanks()) do names = names + 1 if r > 1 then ranked = ranked + 1 end end
     print(string.format("  spellbook: %d names read, %d with a rank above 1", names, ranked))

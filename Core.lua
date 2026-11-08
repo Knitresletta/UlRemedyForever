@@ -180,7 +180,7 @@ local FEATURES = {
     { key = "autoquest",   group = "Quests",    label = "Auto Quest",        desc = "Hold Shift while talking to an NPC: quests are accepted and handed in, a lone gossip line is chosen. A choice between rewards is left to you." },
     { key = "rolls",       group = "Group",     label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each loot roll, by the party frames." },
     { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
-    { key = "trainerpreview", group = "Interface", label = "Trainer Preview",  desc = "A Trainer tab in the spellbook with what your class trainer has for you, and a note on level up." },
+    { key = "trainerpreview", group = "Interface", label = "Trainer Preview",  desc = "A Trainer tab in the spellbook with what your class trainer has for you, levels from ForeverChanges, and a note on level up." },
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },

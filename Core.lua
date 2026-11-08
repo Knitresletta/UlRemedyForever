@@ -29,6 +29,7 @@ local DEFAULTS = {
     macros      = true,
     fishing     = true,
     fishsound   = false,
+    autopet     = true,
 }
 
 local function InitDB()
@@ -184,6 +185,7 @@ local FEATURES = {
     { key = "windows",     group = "Interface", label = "Movable Windows",   desc = "Drag Blizzard windows and bags anywhere, positions remembered. Off needs /reload." },
     { key = "bagsort",     group = "Interface", label = "Bag Sort Button",   desc = "Blizzard's sort button on the combined bag, where the slot counter hides it." },
     { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click lists the inventory browser, the playtime window and the other Ul addons, right-click opens the options." },
+    { key = "autopet",     group = "Interface", label = "Auto Pet",          desc = "Summons one of your favorite companion pets when none is out: after login, death, flights and zone changes." },
     { key = "chatcopy",    group = "Interface", label = "Chat Copy",         desc = "A Copy button at the chat frame's corner opens the chat log in a window where the text can be selected and copied." },
     { key = "darkmode",    group = "Interface", label = "Dark Mode",         desc = "Turns Blizzard's frame borders dark grey; backgrounds, icons, portraits and bars are left alone. /ur shade sets how dark." },
     { key = "macros",      group = "Items",     label = "Auto Macro",        desc = "UR Heal chains your self-heals, Healthstone and best healing potion; UR Mana, Food, Drink and Bandage use the best in your bags." },
@@ -237,6 +239,7 @@ local function PrintHelp()
     print("  /ur tpreset: forget the remembered trainer list for this class")
     print("  /ur tplevel [n]: what the level-up line would say at level n, and why")
     print("  /ur hub: print minimap button diagnostics and the Ul addons registered in its menu")
+    print("  /ur pet: print auto pet diagnostics (journal, favorites, what the last attempt saw)")
 end
 
 -- Modules that need a nudge when a feature changes state.
@@ -261,6 +264,7 @@ local function NotifyModules()
     if UlRemedy.RefreshAuctionShare then UlRemedy.RefreshAuctionShare() end
     if UlRemedy.RefreshAutoMacro then UlRemedy.RefreshAutoMacro() end
     if UlRemedy.RefreshFishing then UlRemedy.RefreshFishing() end
+    if UlRemedy.RefreshAutoPet then UlRemedy.RefreshAutoPet() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -335,6 +339,10 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "dpins" then
         if UlRemedy.DungeonEntrancesDebug then UlRemedy.DungeonEntrancesDebug() end
+        return
+    end
+    if cmd == "pet" then
+        if UlRemedy.AutoPetDebug then UlRemedy.AutoPetDebug() end
         return
     end
     if cmd == "macrolist" then

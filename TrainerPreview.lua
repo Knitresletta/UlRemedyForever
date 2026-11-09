@@ -4,7 +4,11 @@
 -- so the list is learned there. Every service the trainer shows (name,
 -- level requirement, cost, icon) is remembered per class, account-wide,
 -- in UlRemedyForeverTrainerDB. A class trainer lists every rank up to the
--- class's maximum with its level, so one visit covers the class.
+-- class's maximum with its level, so one visit covers the class. What is
+-- learned is another matter: that is remembered per character (db.chars),
+-- from that character's own visits. Kept per class until 1.25.1, which
+-- gave a new level-3 rogue the learned marks of a level-25 one and hid
+-- every rank between them (09.11.2026).
 --
 -- What Forever's trainer API gives (checked 16.10.2026): a name and a
 -- category per service, a level requirement and a cost. No rank text, and
@@ -57,7 +61,8 @@
 -- trainer does (08.11.2026).
 
 local ROW_H = 22
-local DB_VERSION = 6 -- 2: keyed by name and level (1 keyed by spell ID, which Forever does not give); 3: no records at level 0; 4: learned marks redone; 5: pet abilities dropped; 6: level-0 lines outside "used" (recipes, items) dropped
+local DB_VERSION = 7 -- 2: keyed by name and level (1 keyed by spell ID, which Forever does not give); 3: no records at level 0; 4: learned marks redone; 5: pet abilities dropped; 6: level-0 lines outside "used" (recipes, items) dropped; 7: learned marks per character
+local TOP_LEVEL = 60
 
 -- What pet trainer NPCs sell, for gold, to teach a pet: not the player's
 -- abilities, though they come through the same trainer window, and on
@@ -117,19 +122,24 @@ local function InitDB()
         -- the marks again, the right way. Version 4 filed a pet trainer's
         -- wares under the class; those go too. Version 5 kept recipes and
         -- items a class trainer listed (available, level 0): same rule.
+        -- Up to version 6 the learned marks sat on the class list, so
+        -- every character of a class shared one character's marks; they
+        -- move to db.chars, filled by each character's next visit.
         for _, list in pairs(db.classes or {}) do
             for key, rec in pairs(list.spells or {}) do
                 if (rec.level or 0) == 0 or PET_ABILITIES[rec.name] then
                     list.spells[key] = nil
-                elseif db.version < 4 then
+                else
                     rec.usedSeen = nil
                 end
             end
-            if db.version < 4 then list.learned = nil end
+            list.learned = nil
         end
+        db.rebuilt = true
     end
     db.version = DB_VERSION
     db.classes = db.classes or {}
+    db.chars = db.chars or {}
 end
 
 local function ClassKey()
@@ -142,6 +152,40 @@ local function ClassList(create)
     local key = ClassKey()
     if not db.classes[key] and create then db.classes[key] = { spells = {} } end
     return db.classes[key]
+end
+
+local function CharKey()
+    local name = UnitName("player") or "?"
+    local realm = GetNormalizedRealmName and GetNormalizedRealmName()
+    if not realm or realm == "" then
+        realm = (GetRealmName() or ""):gsub("%s+", "")
+    end
+    return name .. "-" .. realm
+end
+
+-- This character's learned marks, from its own trainer visits:
+-- learned[name] is how many ranks of the name the trainer listed as
+-- learned, learnedBelow[name] the level every remembered rank of the name
+-- below it is learned at (the level of the lowest rank still unlearned,
+-- or one past the trainer's reach when none was). Nil before the first
+-- visit on this character.
+local function CharData(create)
+    if not db then return nil end
+    local key = CharKey()
+    if not db.chars[key] and create then db.chars[key] = { class = ClassKey(), learned = {}, learnedBelow = {} } end
+    return db.chars[key]
+end
+
+-- Learned on this character: the trainer listed this rank, or a higher
+-- rank of the name, as learned, or (where there is a spell ID) the
+-- spellbook has it. Never from another character's visit.
+local function Learned(rec, char)
+    if rec.spellID then
+        if IsSpellKnown and IsSpellKnown(rec.spellID) then return true end
+        if IsPlayerSpell and IsPlayerSpell(rec.spellID) then return true end
+    end
+    local below = char and char.learnedBelow and char.learnedBelow[rec.name]
+    return below ~= nil and (rec.level or 0) < below
 end
 
 -- ForeverChanges' spellbook for the class (TrainerData.lua): for each
@@ -200,18 +244,18 @@ end
 -- Ranks are derived: the services sharing a name, in level order, are
 -- rank 1, 2, 3... Learned ranks often have no record (a learned line
 -- comes without a level and cannot be kept), only a count per name from
--- the last read (list.learned), and the trainer does not list a starting
--- rank at all, so the spellbook's highest known rank counts too. The
--- unlearned ranks are numbered from the largest of those up. Sets
--- rec.rankNo and rec.rankOf on every record. Clients that give rank text
--- keep it in rec.rank.
+-- this character's last read (char.learned), and the trainer does not
+-- list a starting rank at all, so the spellbook's highest known rank
+-- counts too. The unlearned ranks are numbered from the largest of those
+-- up. Sets rec.rankNo and rec.rankOf on every record. Clients that give
+-- rank text keep it in rec.rank.
 --
 -- Where the catalog knows the name and has a rank at every level the
 -- trainer listed, its numbering wins: it counts the ranks the trainer
 -- never lists (starting spells, a rank 1 from a talent). A name the
 -- catalog does not know is marked (rec.offCatalog) and numbered the
 -- derived way.
-local function AssignRanks(list)
+local function AssignRanks(list, char)
     local known = SpellbookRanks()
     local catalog = Catalog()
     local byName = {}
@@ -234,13 +278,13 @@ local function AssignRanks(list)
             end
         end
         local learnedRecs = 0
-        for _, rec in ipairs(recs) do if rec.usedSeen then learnedRecs = learnedRecs + 1 end end
-        local learned = math.max(learnedRecs, list.learned and list.learned[name] or 0, known[name] or 0)
+        for _, rec in ipairs(recs) do if Learned(rec, char) then learnedRecs = learnedRecs + 1 end end
+        local learned = math.max(learnedRecs, char and char.learned and char.learned[name] or 0, known[name] or 0)
         local unlearned = #recs - learnedRecs
         local i, j = 0, 0
         for _, rec in ipairs(recs) do
             if not fromCatalog then
-                if rec.usedSeen then
+                if Learned(rec, char) then
                     i = i + 1
                     rec.rankNo = i
                 else
@@ -259,31 +303,24 @@ local function Label(rec)
     return rec.name
 end
 
--- Known right now according to the spellbook, by spell ID only. Forever
--- gives no spell IDs, so this says false there and the trainer's own
--- "already learned" category carries the knowledge instead.
-local function SpellKnownNow(rec)
-    if not rec.spellID then return false end
-    if IsSpellKnown and IsSpellKnown(rec.spellID) then return true end
-    if IsPlayerSpell and IsPlayerSpell(rec.spellID) then return true end
-    return false
-end
-
 -- Returns available (level reached, not known), upcoming (level not
--- reached, not known), both sorted by level then name, and the class list
--- (nil before the first trainer visit; upcoming then comes from the
--- catalog alone).
+-- reached, not known), both sorted by level then name, the class list
+-- (nil before the first trainer visit on any character of the class;
+-- upcoming then comes from the catalog alone) and this character's
+-- learned marks (nil before its own first visit; nothing counts as
+-- learned then).
 local function Compute(level)
     local available, upcoming = {}, {}
     local list = ClassList(false)
+    local char = CharData(false)
     local spells = list and list.spells or {}
-    if list then AssignRanks(list) end
+    if list then AssignRanks(list, char) end
 
     -- Highest level at which a service of each name is known. Learning a
     -- rank makes every lower rank of the same name moot.
     local knownUpTo = {}
     for _, rec in pairs(spells) do
-        if SpellKnownNow(rec) or rec.usedSeen then
+        if Learned(rec, char) then
             local l = rec.level or 0
             if (knownUpTo[rec.name] or -1) < l then knownUpTo[rec.name] = l end
         end
@@ -312,7 +349,7 @@ local function Compute(level)
             if rec.rankNo then
                 covered[rec.name] = covered[rec.name] or {}
                 covered[rec.name][rec.rankNo] = true
-                if (SpellKnownNow(rec) or rec.usedSeen) and (knownRank[rec.name] or 0) < rec.rankNo then
+                if Learned(rec, char) and (knownRank[rec.name] or 0) < rec.rankNo then
                     knownRank[rec.name] = rec.rankNo
                 end
             end
@@ -320,7 +357,7 @@ local function Compute(level)
         local spellbook = SpellbookRanks()
         for name, levels in pairs(catalog) do
             local known = math.max(knownRank[name] or 0, spellbook[name] or 0,
-                list and list.learned and list.learned[name] or 0)
+                char and char.learned and char.learned[name] or 0)
             for i, l in ipairs(levels) do
                 if l > level and i > known and not (covered[name] and covered[name][i])
                     and not (levels.talent and i == 1) then
@@ -335,7 +372,7 @@ local function Compute(level)
     end
     table.sort(available, byLevel)
     table.sort(upcoming, byLevel)
-    return available, upcoming, list
+    return available, upcoming, list, char
 end
 
 ------------------------------------------------------------------------
@@ -421,8 +458,11 @@ local function ScanTrainerUnsafe()
             return
         end
         local list = ClassList(true)
-        local learnedNoLevel = {}  -- name -> learned lines listed without a level requirement
+        local char = CharData(true)
+        local learnedCount = {}    -- name -> learned lines listed (with or without a level)
+        local learnedUpTo = {}     -- name -> highest level among learned lines listed with one
         local lowestUnlearned = {} -- name -> lowest level among the unlearned lines listed
+        local reach = 0            -- highest level requirement the trainer listed at all
         for i = 1, n do
             local name, rank, category = ServiceFields(i)
             if name and category and category ~= "header" and not PET_ABILITIES[name] and not petNames[name] then
@@ -441,43 +481,50 @@ local function ScanTrainerUnsafe()
                     -- A learned line without its level requirement cannot
                     -- be keyed (Forever lists learned services this way).
                     -- Counted per name and settled below.
-                    learnedNoLevel[name] = (learnedNoLevel[name] or 0) + 1
+                    learnedCount[name] = (learnedCount[name] or 0) + 1
                 else
-                    if category ~= "used" then
-                        local l = level or 0
-                        if not lowestUnlearned[name] or l < lowestUnlearned[name] then lowestUnlearned[name] = l end
+                    local l = level or 0
+                    if l > reach then reach = l end
+                    if category == "used" then
+                        learnedCount[name] = (learnedCount[name] or 0) + 1
+                        if (learnedUpTo[name] or 0) < l then learnedUpTo[name] = l end
+                    elseif not lowestUnlearned[name] or l < lowestUnlearned[name] then
+                        lowestUnlearned[name] = l
                     end
-                    local key = name .. "|" .. (level or 0)
+                    local key = name .. "|" .. l
                     local rec = list.spells[key] or {}
-                    rec.name, rec.rank, rec.spellID, rec.level = name, rank, spellID, level or 0
+                    rec.name, rec.rank, rec.spellID, rec.level = name, rank, spellID, l
                     if icon then rec.icon = icon end
                     -- A learned service shows no cost; keep the one seen earlier.
                     if category ~= "used" or (cost or 0) > 0 then rec.cost = cost or 0 end
-                    if category == "used" then rec.usedSeen = true end
                     list.spells[key] = rec
                 end
             end
         end
         if seen > 0 then
-            -- Ranks are learned in order, so with learned lines of a name
-            -- on the list, every remembered rank below the lowest unlearned
-            -- one (or every rank, when none is unlearned) has been learned.
-            -- The count is kept for the rank numbers.
-            list.learned = list.learned or {}
-            for name, count in pairs(learnedNoLevel) do
-                list.learned[name] = count
-                for _, rec in pairs(list.spells) do
-                    if rec.name == name and (not lowestUnlearned[name] or (rec.level or 0) < lowestUnlearned[name]) then
-                        rec.usedSeen = true
-                    end
+            -- Ranks are learned in order, so every remembered rank of a
+            -- name below the lowest unlearned one has been learned. With
+            -- learned lines and nothing unlearned, everything the trainer
+            -- reaches is: a starter trainer lists low ranks only, so its
+            -- reach, not the class's top, bounds that. Learning is never
+            -- undone, so the marks only ever move up. The counts are kept
+            -- for the rank numbers.
+            local top = (reach > 0 and reach or TOP_LEVEL) + 1
+            for name, count in pairs(learnedCount) do
+                if (char.learned[name] or 0) < count then char.learned[name] = count end
+                local below = lowestUnlearned[name] or math.max(top, (learnedUpTo[name] or 0) + 1)
+                if (char.learnedBelow[name] or 0) < below then char.learnedBelow[name] = below end
+            end
+            for name, l in pairs(lowestUnlearned) do
+                if not learnedCount[name] then
+                    char.learned[name] = char.learned[name] or 0
+                    if (char.learnedBelow[name] or 0) < l then char.learnedBelow[name] = l end
                 end
             end
-            for name in pairs(lowestUnlearned) do
-                if not learnedNoLevel[name] then list.learned[name] = 0 end
-            end
-            AssignRanks(list)
+            AssignRanks(list, char)
             list.lastVisit = date("%Y-%m-%d %H:%M")
             list.trainer = UnitName("npc")
+            char.lastVisit, char.trainer = list.lastVisit, list.trainer
         end
     end)
     return seen, skip
@@ -534,7 +581,7 @@ end
 
 local function AnnounceLevelUp(level)
     if not Enabled() then return false end
-    local available = Compute(level)
+    local available, _, _, char = Compute(level)
     local new, total = {}, 0
     for _, rec in ipairs(available) do
         if (rec.level or 0) == level then
@@ -547,7 +594,7 @@ local function AnnounceLevelUp(level)
         #new, #new == 1 and "ability" or "abilities", table.concat(new, ", "),
         UlRemedy.MoneyText(total), UlRemedy.MoneyText(GetMoney() or 0)))
     local older = #available - #new
-    if older > 0 then
+    if older > 0 and char and char.lastVisit then
         print(string.format("  Plus %d from earlier levels still waiting. The Trainer tab in your spellbook has the list.", older))
     end
     return true
@@ -623,12 +670,13 @@ end
 
 local function BuildRows()
     local level = UnitLevel("player") or 1
-    local available, upcoming, list = Compute(level)
+    local available, upcoming, list, char = Compute(level)
+    local visited = char and char.lastVisit ~= nil
     local rows = {}
     if not list and #upcoming == 0 then
         rows[#rows + 1] = { note = true, text = "No trainer visit recorded for this class yet." }
         rows[#rows + 1] = { note = true, text = "Open your class trainer once and the list fills in." }
-        return rows, nil
+        return rows, nil, nil
     end
     local total = 0
     for _, rec in ipairs(available) do total = total + (rec.cost or 0) end
@@ -636,6 +684,8 @@ local function BuildRows()
         right = #available > 0 and (UlRemedy.MoneyText(total) .. " in total") or "" }
     if not list then
         rows[#rows + 1] = { note = true, text = "No trainer visit recorded for this class yet. Open your class trainer once for prices and what you have learned." }
+    elseif not visited then
+        rows[#rows + 1] = { note = true, text = "This character has not visited a class trainer yet, so every line up to your level is listed, learned or not. Open your class trainer once." }
     elseif #available == 0 then
         rows[#rows + 1] = { note = true, text = "Nothing waiting. Everything up to your level is learned." }
     end
@@ -651,16 +701,19 @@ local function BuildRows()
         end
     end
     for _, rec in ipairs(upcoming) do rows[#rows + 1] = { rec = rec, dim = true } end
-    return rows, list
+    return rows, list, char
 end
 
 local function RefreshPanel()
     if not panel or not panel:IsShown() then return end
-    local rows, list = BuildRows()
+    local rows, list, char = BuildRows()
     local source = Catalog() and (" Levels from ForeverChanges, build " .. CatalogBuild() .. ".") or ""
-    if list and list.lastVisit then
-        panel.sub:SetText("From your trainer visit on " .. list.lastVisit
-            .. (list.trainer and (" (" .. list.trainer .. ")") or "") .. ". Visit again to pick up changes." .. source)
+    if char and char.lastVisit then
+        panel.sub:SetText("From your trainer visit on " .. char.lastVisit
+            .. (char.trainer and (" (" .. char.trainer .. ")") or "") .. ". Visit again to pick up changes." .. source)
+    elseif list and list.lastVisit then
+        panel.sub:SetText("Trainer list from another character of your class (" .. list.lastVisit .. ")."
+            .. " Visit your class trainer once for what this character has learned." .. source)
     else
         panel.sub:SetText(source)
     end
@@ -814,12 +867,16 @@ end
 -- /ur tp
 function UlRemedy.TrainerPreviewDebug()
     local level = UnitLevel("player") or 1
-    local available, upcoming, list = Compute(level)
+    local available, upcoming, list, char = Compute(level)
     local count = 0
     if list then for _ in pairs(list.spells) do count = count + 1 end end
     Say(string.format("trainer preview for %s: %d services remembered, %d available now, %d coming up.",
         ClassKey(), count, #available, #upcoming))
-    print("  last visit: " .. tostring(list and list.lastVisit) .. ", trainer: " .. tostring(list and list.trainer))
+    print("  class list last extended: " .. tostring(list and list.lastVisit) .. ", trainer: " .. tostring(list and list.trainer))
+    local marks = 0
+    if char then for _ in pairs(char.learnedBelow or {}) do marks = marks + 1 end end
+    print("  this character (" .. CharKey() .. "): visit " .. tostring(char and char.lastVisit) .. ", trainer: "
+        .. tostring(char and char.trainer) .. ", learned marks on " .. marks .. " names")
     local catalog, catalogCount, offCatalog, fromCatalog = Catalog(), 0, 0, 0
     if catalog then for _ in pairs(catalog) do catalogCount = catalogCount + 1 end end
     if list then for _, rec in pairs(list.spells) do if rec.offCatalog then offCatalog = offCatalog + 1 end end end
@@ -855,7 +912,7 @@ function UlRemedy.TrainerPreviewLevelTest(arg)
         Say("no trainer list for " .. ClassKey() .. " yet.")
         return
     end
-    local available, upcoming = Compute(level)
+    local available, upcoming, _, char = Compute(level)
     local byKey = {}
     for _, rec in ipairs(available) do byKey[rec] = "available" end
     for _, rec in ipairs(upcoming) do byKey[rec] = "upcoming" end
@@ -865,7 +922,7 @@ function UlRemedy.TrainerPreviewLevelTest(arg)
         if (rec.level or 0) == level then
             n = n + 1
             print(string.format("  %s: seen learned %s, cost %s, judged %s",
-                Label(rec), tostring(rec.usedSeen or false), UlRemedy.MoneyText(rec.cost or 0),
+                Label(rec), tostring(Learned(rec, char)), UlRemedy.MoneyText(rec.cost or 0),
                 byKey[rec] or "known (this or a higher rank)"))
         end
     end
@@ -878,8 +935,9 @@ end
 function UlRemedy.ResetTrainerPreview()
     if not db then return end
     db.classes[ClassKey()] = nil
+    db.chars[CharKey()] = nil
     RefreshPanel()
-    Say("trainer list for " .. ClassKey() .. " forgotten. Visit your class trainer to learn it again.")
+    Say("trainer list for " .. ClassKey() .. " and the learned marks of " .. CharKey() .. " forgotten. Visit your class trainer to learn them again.")
 end
 
 ------------------------------------------------------------------------
@@ -904,7 +962,7 @@ frame:SetScript("OnEvent", function(self, event, arg1)
         UlRemedy.RefreshTrainerPreview()
         if db and db.rebuilt and Enabled() then
             db.rebuilt = nil
-            Say("the trainer list is kept in a new shape. Visit your class trainer once and it fills in again.")
+            Say("the trainer list is kept in a new shape (what is learned now follows each character). Visit your class trainer once and it fills in again.")
         end
     elseif event == "PLAYER_LEVEL_UP" then
         local level = tonumber(arg1)

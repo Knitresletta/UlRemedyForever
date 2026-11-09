@@ -4,11 +4,14 @@
 --
 -- Stubs the handful of WoW API calls TrainerPreview.lua touches, loads
 -- TrainerData.lua and TrainerPreview.lua, migrates a version-5 DB with a
--- level-0 potion record, reads a trainer list shaped like Loganaar's on
--- 08.11.2026 (Discolored Healing Potions at level 0, learned Wrath lines
--- without a level, Insect Swarm whose rank 1 comes from a talent, a line
--- the catalog does not know), and asserts what the tab would show. Not
--- shipped (tools/ is excluded from the zip).
+-- level-0 potion record and class-wide learned marks, reads a trainer
+-- list shaped like Loganaar's on 08.11.2026 (Discolored Healing Potions
+-- at level 0, learned Wrath lines without a level, Insect Swarm whose
+-- rank 1 comes from a talent, a line the catalog does not know), and
+-- asserts what the tab would show. Then a second druid of level 10 visits
+-- a starter trainer: the learned marks of the two must not leak into each
+-- other (they did until 1.25.1, per class). Not shipped (tools/ is
+-- excluded from the zip).
 --
 local ROOT = arg[1]
 UlRemedy = { name = "UlRemedyForever", enabled = { trainerpreview = true } }
@@ -26,8 +29,10 @@ CreateFrame = function() return Frame() end
 C_Timer = { After = function(_, fn) end }
 GetTime = function() return 0 end
 UnitClass = function() return "Druid", "DRUID" end
-UnitLevel = function() return 34 end
-UnitName = function(u) if u == "npc" then return "Loganaar" end end
+local playerName, playerLevel, npcName = "Sofie", 34, "Loganaar"
+UnitLevel = function() return playerLevel end
+UnitName = function(u) if u == "npc" then return npcName end return playerName end
+GetNormalizedRealmName = function() return "Realm" end
 GetMoney = function() return 115000 end
 date = os.date
 C_SpellBook = { GetSpellBookItemName = function(i, bank)
@@ -70,15 +75,17 @@ ClassTrainerFrame = { IsShown = function() return true end }
 
 dofile(ROOT .. "/TrainerData.lua")
 dofile(ROOT .. "/TrainerPreview.lua")
--- old DB with level-0 junk from version 5
-UlRemedyForeverTrainerDB = { version = 5, classes = { DRUID = { spells = {
+-- old DB with level-0 junk from version 5 and class-wide learned marks
+UlRemedyForeverTrainerDB = { version = 5, classes = { DRUID = { learned = { Wrath = 3 }, spells = {
     ["Discolored Healing Potion|0"] = { name = "Discolored Healing Potion", level = 0, cost = 5 },
-    ["Starfire|20"] = { name = "Starfire", level = 20, cost = 2400 },
+    ["Starfire|20"] = { name = "Starfire", level = 20, cost = 2400, usedSeen = true },
 } } } }
 scripts.OnEvent(nil, "ADDON_LOADED", "UlRemedyForever")
 local db = UlRemedyForeverTrainerDB
-assert(db.version == 6, "version")
+assert(db.version == 7, "version")
 assert(db.classes.DRUID.spells["Discolored Healing Potion|0"] == nil, "migration dropped level 0")
+assert(db.classes.DRUID.spells["Starfire|20"].usedSeen == nil, "migration stripped the learned mark")
+assert(db.classes.DRUID.learned == nil and type(db.chars) == "table" and db.rebuilt, "migration moved learned marks out")
 print("migration ok")
 
 -- find locals via upvalues of the debug command
@@ -104,6 +111,10 @@ assert(spells["Discolored Healing Potion|0"] == nil and spells["Major Discolored
 print("potions dropped ok")
 
 local Label = upvalue(Compute, "Label")
+local sofie = db.chars["Sofie-Realm"]
+assert(sofie and sofie.lastVisit and sofie.trainer == "Loganaar", "character visit recorded")
+assert(sofie.learned.Wrath == 3 and sofie.learnedBelow.Wrath == 22, "Wrath marks: 3 learned lines, lowest unlearned at 22")
+assert(sofie.learned.Starfire == 0 and sofie.learnedBelow.Starfire == 20, "Starfire: nothing learned, lowest unlearned 20")
 local available, upcoming, list = Compute(34)
 print("AVAILABLE")
 for _, r in ipairs(available) do print("  ", Label(r), "L" .. r.level, r.cost, r.offCatalog and "OFF" or "") end
@@ -120,6 +131,53 @@ assert(find(upcoming, "Starfire (Rank 5)").catalog, "Starfire rank 5 from catalo
 assert(find(upcoming, "Starfire (Rank 4)").cost == 9000, "Starfire rank 4 from trainer, not duplicated")
 local dup = 0; for _, r in ipairs(upcoming) do if Label(r) == "Starfire (Rank 4)" then dup = dup + 1 end end
 assert(dup == 1, "duplicate rank 4")
+-- A second druid, level 10, at a starter trainer that lists low ranks
+-- only: Wrath rank 2 (6) for sale, rank 3 (14) too high, Moonfire 10.
+playerName, playerLevel, npcName = "Nyx", 10, "Mardant Strongoak"
+services = {
+    { "Wrath", "available", 6, 100 },
+    { "Wrath", "unavailable", 14, 800 },
+    { "Moonfire", "available", 10, 400 },
+}
+scripts.OnEvent(nil, "TRAINER_UPDATE")
+local nyx = db.chars["Nyx-Realm"]
+assert(nyx and nyx.lastVisit and nyx.trainer == "Mardant Strongoak", "second character's visit recorded")
+assert(nyx.learnedBelow.Wrath == 6 and nyx.learned.Wrath == 0, "Nyx: no Wrath learned")
+assert(sofie.learnedBelow.Wrath == 22, "Sofie's marks untouched by Nyx's visit")
+local a3, u3 = Compute(10)
+print("NYX AVAILABLE")
+for _, r in ipairs(a3) do print("  ", Label(r), "L" .. r.level, r.cost) end
+assert(find(a3, "Wrath (Rank 2)") and find(a3, "Wrath (Rank 2)").cost == 100, "Nyx: Wrath rank 2 for sale, Sofie's learned Wrath does not hide it")
+assert(find(a3, "Moonfire (Rank 2)"), "Nyx: Moonfire 10 is rank 2 by the catalog")
+assert(not find(a3, "Wrath (Rank 3)") and find(u3, "Wrath (Rank 3)").cost == 800, "Nyx: Wrath 14 coming up, from the trainer")
+assert(find(u3, "Starfire (Rank 1)").cost == 2400, "Nyx: Starfire 20 from Sofie's trainer list, prices are shared")
+assert(find(u3, "Moonfire (Rank 3)").catalog, "Nyx: Moonfire 16 from the catalog")
+-- Sofie again: the starter trainer's Wrath lines are below her lowest unlearned Wrath, so learned
+playerName, playerLevel = "Sofie", 34
+local a4 = Compute(34)
+assert(not find(a4, "Wrath (Rank 2)") and not find(a4, "Wrath (Rank 3)"), "Sofie: low Wrath ranks learned, not shown")
+assert(find(a4, "Starfire (Rank 3)") and find(a4, "Wrath (Rank 4)"), "Sofie: her own list unchanged")
+assert(find(a4, "Moonfire (Rank 2)"), "Sofie: Moonfire 10 is unknown to her, shown until her next visit")
+-- Nyx learns Wrath rank 2 and Moonfire, visits again: no unlearned Moonfire on this trainer,
+-- so Moonfire is learned up to the trainer's reach (14), not up to 60
+playerName, playerLevel = "Nyx", 10
+services = {
+    { "Wrath", "used", 0, 0 },
+    { "Wrath", "unavailable", 14, 800 },
+    { "Moonfire", "used", 0, 0 },
+}
+scripts.OnEvent(nil, "TRAINER_UPDATE")
+assert(nyx.learnedBelow.Wrath == 14 and nyx.learned.Wrath == 1, "Nyx: Wrath learned below 14")
+assert(nyx.learnedBelow.Moonfire == 15 and nyx.learned.Moonfire == 1, "Nyx: Moonfire learned up to the trainer's reach")
+local a5, u5 = Compute(10)
+assert(#a5 == 0, "Nyx: nothing waiting after learning both")
+assert(find(u5, "Moonfire (Rank 3)") and find(u5, "Wrath (Rank 3)"), "Nyx: next ranks still coming up")
+-- Nyx before any visit of her own: everything up to her level is listed, with a note
+db.chars["Nyx-Realm"] = nil
+local a6, _, _, c6 = Compute(10)
+assert(c6 == nil and find(a6, "Wrath (Rank 2)") and find(a6, "Moonfire (Rank 2)"), "no visit: nothing counts as learned")
+print("per-character marks ok")
+
 -- no list at all: upcoming from catalog only
 db.classes.DRUID = nil
 local a2, u2, l2 = Compute(34)

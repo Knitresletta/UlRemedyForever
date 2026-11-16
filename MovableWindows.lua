@@ -55,7 +55,6 @@
 
 -- Windows handled even when they are not registered in UIPanelWindows.
 local NAMED = {
-    "CharacterFrame",
     "SpellBookFrame",
     "PlayerSpellsFrame",  -- newer spellbook
     "TalentFrame",        -- Blizzard_TalentUI (load on demand)
@@ -90,6 +89,10 @@ local EXCLUDE = {
     PlayerSpellsFrame = true,       -- spellbook and talents
     CooldownViewerSettings = true,
     CinematicFrame = true,
+    -- Detached, its Currency tab shows an empty list on Forever: the rows
+    -- exist and report visible, but nothing is drawn until a click raises
+    -- the window. Shown through the panel manager it works (15.11.2026).
+    CharacterFrame = true,
 }
 
 -- Windows left inside the panel manager but still draggable and remembered.
@@ -97,6 +100,7 @@ local EXCLUDE = {
 -- manager has done its own layout.
 local MANAGED_MOVERS = {
     "PlayerSpellsFrame",
+    "CharacterFrame",
 }
 
 -- Areas never detached: full-screen panels manage the whole screen themselves.

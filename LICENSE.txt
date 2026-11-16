@@ -1,0 +1,15 @@
+UlRemedyForever - a utility addon for World of Warcraft: Forever
+Copyright (C) 2026 knitresletta
+
+This addon is free software: you can redistribute it and/or modify it under the
+terms of the GNU General Public License as published by the Free Software
+Foundation, version 3 (GPL-3.0). The full text of the GPL is in COPYING.txt.
+
+This addon is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU General Public License for more details.
+
+See NOTICE.txt for where each part of this addon comes from.
+
+World of Warcraft is a trademark of Blizzard Entertainment, Inc. This addon is
+not affiliated with or endorsed by Blizzard Entertainment.

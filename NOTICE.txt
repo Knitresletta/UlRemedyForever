@@ -1,0 +1,20 @@
+UlRemedyForever - where each part of this addon comes from, and under which terms
+==================================================================================
+
+The licence is in LICENSE.txt (GPL-3.0) and the GPL's full text in COPYING.txt.
+
+1. The addon's own code and media
+   Every *.lua, *.xml and *.toc file, and media/*.tga.
+   Copyright (C) 2026 knitresletta. GPL-3.0.
+
+2. Data generated from the WoW Forever client's own tables
+   ReagentData.lua, the flight path and transport tables, and the zone and
+   dungeon tables are built from the Forever client's data files (via
+   wago.tools) and from ForeverChanges (https://foreverchanges.pro). Names and
+   numbers in them are Blizzard Entertainment's; this addon claims nothing in
+   them beyond its selection and arrangement.
+
+3. World of Warcraft
+   World of Warcraft, WoW Forever and their names, places and icons are
+   trademarks or property of Blizzard Entertainment, Inc. This addon is not
+   affiliated with or endorsed by Blizzard Entertainment.

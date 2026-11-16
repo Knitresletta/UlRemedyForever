@@ -67,6 +67,10 @@ Since 1.10.0 the addon **shares auction prices with other UlRemedyForever users 
 
 **Auto Pet**: Summons one of your favorite companion pets when none is out. Favorites are the pets you star in the Pet Journal (Shift+P); the addon picks one at random each time. It acts only when the game itself has taken the pet away: after login or reload, when you come back to life, when you land from a flight and when you arrive in a new zone, or once combat ends if one of those happened mid-fight. Dismissing the pet yourself is respected until the next such moment. Nothing happens while dead, in combat, on a taxi, stealthed or in a vehicle, and nothing at all if you have no favorites (the addon says so once). `/ur pet` prints diagnostics.
 
+**Player Notes**: Right-click a player (target, focus, party or raid member, a name in chat, a friend or guild member in those lists) and the menu has **Add note**; with a note on them, **Edit note** and **Remove note**. The note shows as a light blue line in the player's tooltip. Notes are kept per account, keyed by name and realm, so a note made on one character shows on all of them. Players only, NPCs share names. `/ur note <name> <text>` sets a note from the keyboard, `/ur note <name>` shows it, `/ur unnote <name>` removes it and `/ur notes` lists them all.
+
+**Reminders**: A message to yourself at the top centre of the screen, one row per reminder with a checkbox in front, there until you tick it off: no timeout, nothing hides it. **Reminders** in the minimap menu (or the **+** on the panel, or `/ur remind`) opens a window: type the reminder, Enter adds it; tick **Every character sees it** first for one that every character gets until it is ticked off on any of them, otherwise it belongs to the character it was made on. The window lists what is waiting with the same checkboxes and has a button that puts the panel back at the top centre after you have dragged it elsewhere.
+
 **Flight Paths**: Shows every flight master for your faction on the world map, including the ones you have not discovered yet. Undiscovered ones are tinted red, drawn slightly larger and have a pulsing red ring behind them; the ones you know are drawn as the normal faction icon. On a continent map (all of Eastern Kingdoms or Kalimdor) every icon is drawn a quarter smaller so they do not crowd each other; zone maps keep the full size. The locations come from the Forever client's own flight path table (so new Forever zones such as Riverglades and Mount Hyjal are included) and are projected onto whichever map you have open. Flight points the game already draws itself are left alone. Clicking a pin sets a map waypoint where the client supports it. The Forever client currently reports every flight path as known, so the addon keeps its own list instead: each time you open a flight master, every path you can fly to from there is saved for that character (paths the flight master lists as unreachable are ignored, since on Forever that includes undiscovered ones). Until you have done that once, all paths show as undiscovered. `/ur fp` prints diagnostics for the open map.
 
 **Transports**: Shows boats, zeppelins, the Deeprun Tram and the Darnassus portals on the world map, each with a tooltip naming where it goes. Dock and tower positions come from the Forever client's transport route table, and the tram and portal positions from its area trigger table, so the Forever-only routes (Stormwind Harbor, Southshore, Powderfuse Port, Zephras Isle) are included. Clicking a pin sets a map waypoint where the client supports it.
@@ -99,6 +103,10 @@ Type `/ur` to open the options window: one checkbox per feature, grouped under V
 | `/ur tp` | Print trainer preview diagnostics (what is remembered, what is available now) |
 | `/ur tpreset` | Forget the remembered trainer list for the current class |
 | `/ur tplevel [n]` | What the level-up line would say at level n (current level when left out), and why |
+| `/ur note <name> [text]` | Set a note on a player, or show it when no text is given |
+| `/ur unnote <name>` | Remove the note on a player |
+| `/ur notes` | List every player note, and whether the right-click menu hook was found |
+| `/ur remind` | Open the reminders window (also Reminders in the minimap menu) |
 | `/ur cursor` | Toggle the cursor ring |
 | `/ur windows` | Toggle movable windows (drag Blizzard windows and bags; positions are remembered) |
 | `/ur winreset` | Forget all saved window positions |
@@ -152,6 +160,10 @@ end
 ```
 
 Add `## OptionalDeps: UlRemedyForever` to the addon's TOC so the client loads UlRemedyForever first. Nothing else is shared: no code, no saved variables.
+
+## Licence
+
+GPL-3.0, see `LICENSE.txt`, with the full text in `COPYING.txt` and the origin of every part in `NOTICE.txt`.
 
 ## Installation
 

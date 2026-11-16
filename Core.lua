@@ -30,6 +30,8 @@ local DEFAULTS = {
     fishing     = true,
     fishsound   = false,
     autopet     = true,
+    notes       = true,
+    reminders   = true,
 }
 
 local function InitDB()
@@ -179,6 +181,7 @@ local FEATURES = {
     { key = "groupinvite", group = "Group",     label = "Group Invite",      desc = "Auto-accepts group invites from friends and guildmates." },
     { key = "autoquest",   group = "Quests",    label = "Auto Quest",        desc = "Hold Shift while talking to an NPC: quests are accepted and handed in, a lone gossip line is chosen. A choice between rewards is left to you." },
     { key = "rolls",       group = "Group",     label = "Loot Rolls",        desc = "Shows who chose Need, Greed or Pass on each loot roll, by the party frames." },
+    { key = "notes",       group = "Group",     label = "Player Notes",      desc = "Right-click a player for Add note; your note shows in their tooltip. Kept across your characters." },
     { key = "trainer",     group = "Interface", label = "Enhanced Trainer",  desc = "Adds a Train All button to trainers." },
     { key = "trainerpreview", group = "Interface", label = "Trainer Preview",  desc = "A Trainer tab in the spellbook with what your class trainer has for you, levels from ForeverChanges, and a note on level up." },
     { key = "cursor",      group = "Interface", label = "Cursor Ring",       desc = "A purple ring that follows your mouse cursor." },
@@ -187,6 +190,7 @@ local FEATURES = {
     { key = "minimap",     group = "Interface", label = "Minimap Button",    desc = "Left-click lists the inventory browser, the playtime window and the other Ul addons, right-click opens the options." },
     { key = "autopet",     group = "Interface", label = "Auto Pet",          desc = "Summons one of your favorite companion pets when none is out: after login, death, flights and zone changes." },
     { key = "chatcopy",    group = "Interface", label = "Chat Copy",         desc = "A Copy button at the chat frame's corner opens the chat log in a window where the text can be selected and copied." },
+    { key = "reminders",   group = "Interface", label = "Reminders",         desc = "A message to yourself at the top of the screen, there until you tick it off. Reminders in the minimap menu opens the window." },
     { key = "darkmode",    group = "Interface", label = "Dark Mode",         desc = "Turns Blizzard's frame borders dark grey; backgrounds, icons, portraits and bars are left alone. /ur shade sets how dark." },
     { key = "macros",      group = "Items",     label = "Auto Macro",        desc = "UR Heal chains your self-heals, Healthstone and best healing potion; UR Mana, Food, Drink and Bandage use the best in your bags." },
     { key = "inventory",   group = "Items",     label = "Inventory Tracker", desc = "Remembers gold, bags and bank for all your characters, with a browser." },
@@ -240,6 +244,9 @@ local function PrintHelp()
     print("  /ur tplevel [n]: what the level-up line would say at level n, and why")
     print("  /ur hub: print minimap button diagnostics and the Ul addons registered in its menu")
     print("  /ur pet: print auto pet diagnostics (journal, favorites, what the last attempt saw)")
+    print("  /ur note <name> [text]: set a note on a player, or show it; /ur unnote <name> removes it")
+    print("  /ur notes: list every player note and whether the right-click menu hook was found")
+    print("  /ur remind: open the reminders window (also Reminders in the minimap menu)")
 end
 
 -- Modules that need a nudge when a feature changes state.
@@ -265,6 +272,7 @@ local function NotifyModules()
     if UlRemedy.RefreshAutoMacro then UlRemedy.RefreshAutoMacro() end
     if UlRemedy.RefreshFishing then UlRemedy.RefreshFishing() end
     if UlRemedy.RefreshAutoPet then UlRemedy.RefreshAutoPet() end
+    if UlRemedy.RefreshReminders then UlRemedy.RefreshReminders() end
     if UlRemedy.RefreshOptions then UlRemedy.RefreshOptions() end
 end
 
@@ -343,6 +351,27 @@ SlashCmdList["ULREMEDY"] = function(msg)
     end
     if cmd == "pet" then
         if UlRemedy.AutoPetDebug then UlRemedy.AutoPetDebug() end
+        return
+    end
+    if cmd == "notes" then
+        if UlRemedy.PlayerNotesList then UlRemedy.PlayerNotesList() end
+        return
+    end
+    if cmd == "noteprobe" then
+        if UlRemedy.PlayerNotesProbe then UlRemedy.PlayerNotesProbe() end
+        return
+    end
+    if cmd == "note" or cmd:match("^note%s") then
+        -- Arguments from the untrimmed message: the note keeps its case.
+        if UlRemedy.PlayerNoteCommand then UlRemedy.PlayerNoteCommand(strtrim(msg):match("^%a+%s*(.*)$")) end
+        return
+    end
+    if cmd == "unnote" or cmd:match("^unnote%s") then
+        if UlRemedy.PlayerUnnoteCommand then UlRemedy.PlayerUnnoteCommand(strtrim(msg):match("^%a+%s*(.*)$")) end
+        return
+    end
+    if cmd == "remind" then
+        if UlRemedy.ToggleRemindersWindow then UlRemedy.ToggleRemindersWindow() end
         return
     end
     if cmd == "macrolist" then

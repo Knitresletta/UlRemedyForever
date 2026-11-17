@@ -260,6 +260,25 @@ local function AddToEscapeList(name)
     table.insert(UISpecialFrames, name)
 end
 
+-- Windows Blizzard places at the cursor when a CVar asks for it. A saved
+-- position must not win over that: the loot window kept opening at the spot
+-- it was once dragged to, with "Open Loot Window at Mouse" on (17.11.2026).
+local CURSOR_CVARS = {
+    LootFrame = "lootUnderMouse",
+}
+
+local function CVarOn(cvar)
+    if C_CVar and C_CVar.GetCVarBool then return C_CVar.GetCVarBool(cvar) end
+    if GetCVarBool then return GetCVarBool(cvar) end
+    return false
+end
+
+local function SavedPosition(name)
+    local cvar = CURSOR_CVARS[name]
+    if cvar and CVarOn(cvar) then return nil end
+    return db.frames[name]
+end
+
 local function SetupPanelUnsafe(name, frame)
     DetachFromPanelManager(frame, name)
     AddToEscapeList(name)
@@ -271,12 +290,12 @@ local function SetupPanelUnsafe(name, frame)
 
     AddScript(frame, "OnShow", function(self)
         if not Enabled() then return end
-        PlaceWindow(self, db.frames[name])
+        PlaceWindow(self, SavedPosition(name))
     end)
     AddScript(frame, "OnHide", function()
         hiddenAt[name] = GetTime()
     end)
-    PlaceWindow(frame, db.frames[name])
+    PlaceWindow(frame, SavedPosition(name))
 end
 
 -- A window that stays inside the manager: drag and remember only.

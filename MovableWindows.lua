@@ -55,6 +55,7 @@
 
 -- Windows handled even when they are not registered in UIPanelWindows.
 local NAMED = {
+    "CharacterFrame",
     "SpellBookFrame",
     "PlayerSpellsFrame",  -- newer spellbook
     "TalentFrame",        -- Blizzard_TalentUI (load on demand)
@@ -89,10 +90,6 @@ local EXCLUDE = {
     PlayerSpellsFrame = true,       -- spellbook and talents
     CooldownViewerSettings = true,
     CinematicFrame = true,
-    -- Detached, its Currency tab shows an empty list on Forever: the rows
-    -- exist and report visible, but nothing is drawn until a click raises
-    -- the window. Shown through the panel manager it works (15.11.2026).
-    CharacterFrame = true,
 }
 
 -- Windows left inside the panel manager but still draggable and remembered.
@@ -100,7 +97,6 @@ local EXCLUDE = {
 -- manager has done its own layout.
 local MANAGED_MOVERS = {
     "PlayerSpellsFrame",
-    "CharacterFrame",
 }
 
 -- Areas never detached: full-screen panels manage the whole screen themselves.
@@ -323,11 +319,33 @@ end
 
 local deferred = false         -- a protected panel appeared in combat; set up after it
 
+-- True when the frame sits inside another window. This client lists some
+-- tabs as panels of their own (TokenFrame, the Currency tab of the
+-- character window, is in UIPanelWindows), and detaching one tears it out
+-- of its window: the Currency tab drew nothing while TokenFrame sat at a
+-- saved position of its own, behind the character window (17.11.2026).
+local NAMED_SET = {}
+for _, n in ipairs(NAMED) do NAMED_SET[n] = true end
+
+local function InsideWindow(frame)
+    local parent = frame:GetParent()
+    while parent and parent ~= UIParent do
+        local parentName = parent.GetName and parent:GetName()
+        if parentName and (NAMED_SET[parentName] or EXCLUDE[parentName]
+            or (UIPanelWindows and UIPanelWindows[parentName])) then
+            return true
+        end
+        parent = parent:GetParent()
+    end
+    return false
+end
+
 local function SetupPanel(name)
     if handled[name] or EXCLUDE[name] then return end
     local frame = _G[name]
     if type(frame) ~= "table" or type(frame.GetObjectType) ~= "function" then return end
     if frame:GetObjectType() ~= "Frame" then return end
+    if InsideWindow(frame) then return end
     -- A protected panel loaded in combat (the professions window, for one)
     -- refuses every call below until combat ends; leave it for then.
     if not CanTouch(frame) then

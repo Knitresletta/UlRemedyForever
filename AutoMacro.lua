@@ -29,9 +29,11 @@
 -- subclass and tooltip ("restores ... health", "mana", "well fed"), and
 -- the highest item level you are allowed to use wins, then the bigger
 -- stack. Items above your level are skipped, since the old world's
--- potions and food carry a level requirement. Food with Well Fed goes
--- before conjured food, which goes before plain food; conjured water
--- goes before bought drinks. Healthstones are found by name, so every
+-- potions and food carry a level requirement. Buff food (anything with
+-- Well Fed in the tooltip) is left out entirely: it is saved for when
+-- the buff is wanted, not eaten to top up health between pulls.
+-- Conjured food goes before plain food; conjured water goes before
+-- bought drinks. Healthstones are found by name, so every
 -- rank counts. The names and tooltip words are English; on another
 -- client language only the subclass part of the guess works.
 --
@@ -78,7 +80,7 @@ for key, names in pairs(KNOWN) do
 end
 
 -- Tiers, lower is better. Within a tier: item level, then stack size.
-local TIER_WELLFED, TIER_CONJURED, TIER_PLAIN = 1, 2, 3
+local TIER_CONJURED, TIER_PLAIN = 1, 2
 
 -- Self-heals worth a place in the UR Heal chain, checked against the
 -- spellbook at build time so only the ones this character knows are
@@ -164,7 +166,8 @@ local function Classify(itemID, name, bag, slot)
     -- Food & Drink. Feasts are placed, not eaten.
     if text:find("feast", 1, true) then return nil end
     local conjured = name:find("^Conjured ") ~= nil
-    if text:find("well fed", 1, true) then return "food", TIER_WELLFED, "Well Fed" end
+    -- Buff food is never picked, for UR Food or UR Drink.
+    if text:find("well fed", 1, true) then return nil end
     -- Plain food and drink: which one it is depends on what it restores.
     if health then return "food", conjured and TIER_CONJURED or TIER_PLAIN, conjured and "conjured" or "guess from tooltip" end
     if mana then return "drink", conjured and TIER_CONJURED or TIER_PLAIN, conjured and "conjured" or "guess from tooltip" end

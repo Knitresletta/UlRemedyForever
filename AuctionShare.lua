@@ -57,6 +57,8 @@ local joinTries = 0
 local lastError
 local stats = { sent = 0, received = 0, merged = 0, dropped = 0, lastPeerBroadcast = nil, skippedBroadcasts = 0 }
 local peers = {}                 -- sender -> GetTime() last heard
+local whispered = {}             -- short name -> GetTime() of our last whisper to it
+local OFFLINE_WINDOW = 30        -- seconds a "not playing" reply is tied to our whisper
 local hello = { at = nil, bestFrom = nil, bestNewest = 0, requested = nil }
 
 local function Enabled()
@@ -158,6 +160,55 @@ if ChatFrame_AddMessageEventFilter then
     end)
 end
 
+-- A peer who logs out while we are whispering prices to them: the game
+-- answers every remaining message with "No player named 'X' is currently
+-- playing." in chat. When X is someone we whispered in the last
+-- OFFLINE_WINDOW seconds, drop the rest of their queue and hide the
+-- notice. Every other "not playing" notice, your own whispers included,
+-- is left alone.
+local function NotFoundPattern()
+    local fmt = ERR_CHAT_PLAYER_NOT_FOUND_S or "No player named '%s' is currently playing."
+    local escaped = fmt:gsub("[%^%$%(%)%%%.%[%]%*%+%-%?]", "%%%0")
+    -- The format's %s is now %%s; turn it back into a capture.
+    return "^" .. escaped:gsub("%%%%s", "(.+)", 1) .. "$"
+end
+local NOT_FOUND = NotFoundPattern()
+
+-- Short name of the offline peer when the message is about one we just
+-- whispered, else nil. Secret or odd text is never ours.
+local function OfflinePeer(text)
+    if type(text) ~= "string" or (issecretvalue and issecretvalue(text)) then return nil end
+    local name = text:match(NOT_FOUND)
+    if not name then return nil end
+    name = SenderName(name)
+    local at = whispered[name]
+    if at and GetTime() - at <= OFFLINE_WINDOW then return name end
+    return nil
+end
+
+local function DropQueueFor(name)
+    for i = #queue, 1, -1 do
+        local msg = queue[i]
+        if msg.kind == "WHISPER" and SenderName(msg.target) == name then
+            table.remove(queue, i)
+            stats.dropped = stats.dropped + 1
+        end
+    end
+    if hello.requested and SenderName(hello.requested) == name then hello.requested = nil end
+    if hello.bestFrom and SenderName(hello.bestFrom) == name then
+        hello.bestFrom, hello.bestNewest = nil, 0
+    end
+    peers[name] = nil
+    stats.offline = (stats.offline or 0) + 1
+end
+
+if ChatFrame_AddMessageEventFilter then
+    ChatFrame_AddMessageEventFilter("CHAT_MSG_SYSTEM", function(_, _, text)
+        local ok, name = pcall(OfflinePeer, text)
+        return ok and name ~= nil
+    end)
+end
+
 ------------------------------------------------------------------------
 -- Sending, paced
 ------------------------------------------------------------------------
@@ -204,6 +255,7 @@ SendNext = function()
     local ok, result = pcall(C_ChatInfo.SendAddonMessage, PREFIX, msg.text, msg.kind, target)
     if ok and ResultOK(result) then
         stats.sent = stats.sent + 1
+        if msg.kind == "WHISPER" then whispered[SenderName(target)] = GetTime() end
         C_Timer.After(SEND_INTERVAL, SendNext)
     else
         if not ok then Report(result) end
@@ -378,6 +430,7 @@ function UlRemedy.AuctionShareDebug()
     if stats.lastPeerBroadcast then
         print("  last broadcast from a peer " .. math.floor((now - stats.lastPeerBroadcast) / 60) .. " min ago; own broadcasts skipped " .. stats.skippedBroadcasts .. ".")
     end
+    if stats.offline then print("  peers gone offline mid-whisper: " .. stats.offline .. " (queue dropped, notice hidden).") end
     if hello.requested then print("  requested a dump from " .. hello.requested .. ".") end
     if lastError then print("  last error: " .. lastError) end
 end
@@ -396,6 +449,7 @@ end
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
 frame:RegisterEvent("CHAT_MSG_ADDON")
+frame:RegisterEvent("CHAT_MSG_SYSTEM")
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "PLAYER_LOGIN" then
         if C_ChatInfo and C_ChatInfo.RegisterAddonMessagePrefix then
@@ -411,5 +465,8 @@ frame:SetScript("OnEvent", function(self, event, ...)
     elseif event == "CHAT_MSG_ADDON" then
         local ok, err = pcall(OnAddonMessage, ...)
         if not ok then Report(err) end
+    elseif event == "CHAT_MSG_SYSTEM" then
+        local ok, name = pcall(OfflinePeer, (...))
+        if ok and name then DropQueueFor(name) end
     end
 end)
